@@ -167,7 +167,7 @@ const ViewJourney = () => {
 
         {/* Action Buttons */}
         <div className="flex gap-4 justify-center pt-8">
-          <button className="px-8 py-3 text-white-900 font-normal border border-white-200 rounded-lg hover:bg-white-50 transition-colors">
+          <button className="px-8 py-3 text-white-900  bg-gray-900 font-normal border border-white-200 rounded-lg hover:bg-white-50 transition-colors">
             Export Progress
           </button>
           <button className="px-8 py-3 bg-gray-900 text-white font-normal rounded-lg hover:bg-gray-800 transition-colors">
