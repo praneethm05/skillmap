@@ -1,28 +1,47 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLearningPlan } from '../api/learningPlans';
-import { toggleSubtopicCompletion as toggleSubtopicCompletionApi } from '../api/progress';
+import {
+  getProgressSummary,
+  toggleSubtopicCompletion as toggleSubtopicCompletionApi,
+} from '../api/progress';
 import type { LearningPlan } from '../types/domain';
+import LoadingSkeleton from '../components/ui/LoadingSkeleton';
+import EmptyState from '../components/ui/EmptyState';
+import ErrorState from '../components/ui/ErrorState';
+import { useAsyncAction } from '../hooks/useAsyncAction';
+import { useAppData } from '../state/AppDataProvider';
 
 const ViewJourney = () => {
+  const { setActivePlanId, setProgressSnapshot, pushToast } = useAppData();
   const [journeyData, setJourneyData] = useState<LearningPlan | null>(null);
+  const {
+    execute: loadJourney,
+    status: loadStatus,
+    error: loadError,
+  } = useAsyncAction(() => getLearningPlan('journey-1'));
+  const {
+    execute: saveToggle,
+    status: saveStatus,
+  } = useAsyncAction(toggleSubtopicCompletionApi);
+
+  const handleJourneyLoad = useCallback(async () => {
+    try {
+      const response = await loadJourney();
+      setJourneyData(response);
+      setActivePlanId(response.id);
+      setProgressSnapshot(response.id, getProgressSummary(response));
+    } catch {
+      pushToast({
+        type: 'error',
+        message: 'Unable to load learning journey. Please retry.',
+      });
+    }
+  }, [loadJourney, pushToast, setActivePlanId, setProgressSnapshot]);
 
   React.useEffect(() => {
-    let isMounted = true;
-
-    const loadJourneyData = async () => {
-      const response = await getLearningPlan('journey-1');
-      if (isMounted) {
-        setJourneyData(response);
-      }
-    };
-
-    void loadJourneyData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    void handleJourneyLoad();
+  }, [handleJourneyLoad]);
 
   const toggleSubtopicCompletion = (subtopicId: string) => {
     setJourneyData((prevData) => {
@@ -56,8 +75,17 @@ const ViewJourney = () => {
     subtopicId: string,
     isCompleted: boolean,
   ) => {
-    const updatedPlan = await toggleSubtopicCompletionApi(planId, subtopicId, isCompleted);
-    setJourneyData(updatedPlan);
+    try {
+      const updatedPlan = await saveToggle(planId, subtopicId, isCompleted);
+      setJourneyData(updatedPlan);
+      setProgressSnapshot(updatedPlan.id, getProgressSummary(updatedPlan));
+    } catch {
+      pushToast({
+        type: 'error',
+        message: 'Could not save your update. Please try again.',
+      });
+      await handleJourneyLoad();
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -75,11 +103,36 @@ const ViewJourney = () => {
     navigate('/dashboard');
   };
 
+  if (loadStatus === 'loading') {
+    return (
+      <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-8 py-16">
+          <LoadingSkeleton variant="journey" />
+        </div>
+      </div>
+    );
+  }
+
+  if (loadStatus === 'error' && loadError) {
+    return (
+      <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-8 py-16">
+          <ErrorState message={loadError} onRetry={() => void handleJourneyLoad()} />
+        </div>
+      </div>
+    );
+  }
+
   if (!journeyData) {
     return (
       <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-8 py-16">
-          <p className="text-gray-600">Loading journey...</p>
+          <EmptyState
+            title="Journey not found"
+            description="We could not find a learning plan for this route yet."
+            actionLabel="Back to Dashboard"
+            onAction={handleBackClick}
+          />
         </div>
       </div>
     );
@@ -164,13 +217,14 @@ const ViewJourney = () => {
               >
                 <div className="flex items-start gap-4">
                   {/* Custom Checkbox */}
-                 <button
+                   <button
   onClick={() => toggleSubtopicCompletion(subtopic.id)}
+  disabled={saveStatus === 'loading'}
   className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
     subtopic.isCompleted
       ? 'bg-green-600 border-green-600'
       : 'border-gray-300 hover:border-gray-400'
-  }`}
+  } ${saveStatus === 'loading' ? 'opacity-70 cursor-not-allowed' : ''}`}
 >
   {subtopic.isCompleted && (
     <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

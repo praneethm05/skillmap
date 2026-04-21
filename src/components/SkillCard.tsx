@@ -1,9 +1,24 @@
-const SkillCard = ({ 
-  skillName = "React JS", 
-  progress = 65, 
+interface SkillCardProps {
+  skillName?: string;
+  progress?: number;
+  subtopicsLeft?: number;
+  totalSubtopics?: number;
+  estimatedHours?: number;
+  onContinue?: () => void;
+  onComplete?: () => void;
+  disableActions?: boolean;
+}
+
+const SkillCard = ({
+  skillName = 'React JS',
+  progress = 65,
   subtopicsLeft = 8,
-  totalSubtopics = 20 
-}) => {
+  totalSubtopics = 20,
+  estimatedHours,
+  onContinue,
+  onComplete,
+  disableActions = false,
+}: SkillCardProps) => {
   const progressPercentage = Math.min(100, Math.max(0, progress));
   const completedSubtopics = totalSubtopics - subtopicsLeft;
   
@@ -34,6 +49,9 @@ const SkillCard = ({
             <div className="text-xs text-gray-400 uppercase tracking-wider font-medium">
               Complete
             </div>
+            {typeof estimatedHours === 'number' ? (
+              <div className="mt-2 text-xs text-gray-500">{estimatedHours}h estimated</div>
+            ) : null}
           </div>
 
           {/* Minimalist progress bar - Clean, functional, no gradients */}
@@ -54,6 +72,29 @@ const SkillCard = ({
                 {progressPercentage < 100 ? 'In Progress' : 'Complete'}
               </span>
             </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            {onContinue ? (
+              <button
+                type="button"
+                onClick={onContinue}
+                disabled={disableActions}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Continue
+              </button>
+            ) : null}
+            {onComplete ? (
+              <button
+                type="button"
+                onClick={onComplete}
+                disabled={progressPercentage === 100 || disableActions}
+                className="flex-1 rounded-lg bg-gray-900 px-4 py-2 text-sm text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                Mark Complete
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

@@ -13,3 +13,6 @@ export const getLearningPlan = async (planId: string): Promise<LearningPlan> =>
 export const createLearningPlan = async (
   input: LearningGoalInput,
 ): Promise<LearningPlan> => client.post<LearningGoalInput, LearningPlan>('/learning-plans/generate', input);
+
+export const markSkillComplete = async (skillId: string): Promise<SkillOverview> =>
+  client.patch<Record<string, never>, SkillOverview>(`/skills/${skillId}/complete`, {});

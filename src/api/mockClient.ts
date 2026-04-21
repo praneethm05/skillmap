@@ -151,6 +151,28 @@ export const mockApiClient: ApiClient = {
       return clone(mockStore.plan) as TResponse;
     }
 
+    if (parts[0] === 'skills' && parts[1] && parts[2] === 'complete') {
+      const updatedSkills = mockStore.skills.map((skill) =>
+        skill.id === parts[1]
+          ? {
+              ...skill,
+              subtopics: skill.subtopics.map((subtopic) => ({
+                ...subtopic,
+                status: 'completed' as const,
+              })),
+            }
+          : skill,
+      );
+
+      mockStore.skills = updatedSkills;
+      const updatedSkill = updatedSkills.find((skill) => skill.id === parts[1]);
+      if (!updatedSkill) {
+        throw new Error(`Skill not found for id: ${parts[1]}`);
+      }
+
+      return clone(updatedSkill) as TResponse;
+    }
+
     throw new Error(`Mock PATCH route not implemented: ${path}`);
   },
 };
