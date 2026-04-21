@@ -10,6 +10,7 @@ interface DashboardControlsProps {
   onSearchChange: (value: string) => void;
   onFilterChange: (value: DashboardFilter) => void;
   onSortChange: (value: DashboardSort) => void;
+  compact?: boolean;
 }
 
 export default function DashboardControls({
@@ -19,6 +20,7 @@ export default function DashboardControls({
   onSearchChange,
   onFilterChange,
   onSortChange,
+  compact = false,
 }: DashboardControlsProps) {
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     onSearchChange(event.target.value);
@@ -33,7 +35,7 @@ export default function DashboardControls({
   };
 
   return (
-    <div className="mb-10 grid grid-cols-1 gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-soft)] md:grid-cols-3">
+    <div className={`mb-10 grid grid-cols-1 gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-soft)] md:grid-cols-3 ${compact ? 'p-4' : 'p-5'}`}>
       <label className="sr-only" htmlFor="dashboard-search-input">Search skills</label>
       <input
         id="dashboard-search-input"
