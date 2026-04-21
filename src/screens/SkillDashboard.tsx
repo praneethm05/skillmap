@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import LearningPlanModal from '../components/LearningPlanModal';
 import { useNavigate } from 'react-router-dom';
 import { getSkillOverviews, markSkillComplete } from '../api/learningPlans';
-import type { SkillOverview } from '../types/domain';
+import type { LearningPlan, SkillOverview } from '../types/domain';
 import LoadingSkeleton from '../components/ui/LoadingSkeleton';
 import EmptyState from '../components/ui/EmptyState';
 import ErrorState from '../components/ui/ErrorState';
@@ -14,7 +14,7 @@ import DashboardControls, {
   type DashboardFilter,
   type DashboardSort,
 } from '../components/dashboard/DashboardControls';
-import type { LearningPlan } from '../types/domain';
+import { calculateProgressSummary } from '../utils/progress';
 
 interface SkillViewModel {
   id: string;
@@ -27,6 +27,8 @@ interface SkillViewModel {
   hasStatus: (status: DashboardFilter) => boolean;
   searchableText: string;
 }
+
+type SkillCardVariant = 'primary' | 'secondary' | 'compact';
 
 const toSkillViewModel = (skill: SkillOverview): SkillViewModel => {
   const total = skill.subtopics.length;
@@ -165,31 +167,22 @@ const SkillDashboard = () => {
   };
   const handlePlanGenerated = (plan: LearningPlan) => {
     setActivePlanId(plan.id);
-    setProgressSnapshot(plan.id, {
-      totalTopics: plan.totalTopics,
-      completedTopics: plan.completedTopics,
-      completionPercentage:
-        plan.totalTopics > 0 ? Math.round((plan.completedTopics / plan.totalTopics) * 100) : 0,
-      completedHours: plan.subtopics
-        .filter((subtopic) => subtopic.isCompleted)
-        .reduce((total, subtopic) => total + subtopic.estimatedHours, 0),
-      estimatedTotalHours: plan.estimatedTotalHours,
-    });
+    setProgressSnapshot(plan.id, calculateProgressSummary(plan));
     navigate('/journey');
     handleCloseModal();
   };
   return (
-    <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
+    <div className="min-h-screen w-full overflow-y-auto bg-gray-50/20">
       
       {/* Clean, spacious layout with generous margins */}
-      <div className="max-w-7xl mx-auto px-8 py-16">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
         
         {/* Simple, elegant header */}
-        <div className="mb-16 text-center">
-          <h1 className="text-4xl font-light text-gray-900 mb-4 tracking-tight">
+        <div className="mb-12 text-center sm:mb-16 animate-[fadeIn_300ms_ease-out]">
+          <h1 className="mb-4 text-3xl font-light tracking-tight text-gray-900 sm:text-4xl">
             Learning Progress
           </h1>
-          <p className="text-lg text-gray-500 font-normal max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-base font-normal text-gray-600 sm:text-lg">
             Track your journey through technology skills with clarity and focus.
           </p>
         </div>
@@ -233,8 +226,11 @@ const SkillDashboard = () => {
         ) : null}
 
         {loadStatus === 'success' && skillCards.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-            {skillCards.map((skill) => {
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:gap-6 xl:grid-cols-3">
+            {skillCards.map((skill, index) => {
+              const variant: SkillCardVariant =
+                index === 0 ? 'primary' : index < 3 ? 'secondary' : 'compact';
+
               return (
                 <SkillCard
                   key={skill.id}
@@ -246,6 +242,7 @@ const SkillDashboard = () => {
                   onContinue={() => navigate('/journey')}
                   onComplete={() => void handleMarkSkillComplete(skill.id)}
                   disableActions={completeStatus === 'loading'}
+                  variant={variant}
                 />
               );
             })}

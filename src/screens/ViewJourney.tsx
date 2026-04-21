@@ -15,17 +15,20 @@ import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import { saveJourneyEdits } from '../api/journey';
 import { calculateProgressSummary, withRecalculatedProgress } from '../utils/progress';
 import { exportProgressCsv, exportProgressPdf } from '../api/export';
+import { featureFlags } from '../config/featureFlags';
 
 const ViewJourney = () => {
   const { setActivePlanId, setProgressSnapshot, pushToast } = useAppData();
   const [journeyData, setJourneyData] = useState<LearningPlan | null>(null);
   const [lastSavedPlan, setLastSavedPlan] = useState<LearningPlan | null>(null);
 
+  const loadJourneyPlan = useCallback(() => getLearningPlan('journey-1'), []);
+
   const {
     execute: loadJourney,
     status: loadStatus,
     error: loadError,
-  } = useAsyncAction(() => getLearningPlan('journey-1'));
+  } = useAsyncAction(loadJourneyPlan);
   const {
     execute: saveToggle,
     status: toggleStatus,
@@ -204,7 +207,7 @@ const ViewJourney = () => {
 
   if (loadStatus === 'loading') {
     return (
-      <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
+      <div className="min-h-screen w-full bg-gray-50/20 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-8 py-16">
           <LoadingSkeleton variant="journey" />
         </div>
@@ -214,7 +217,7 @@ const ViewJourney = () => {
 
   if (loadStatus === 'error' && loadError) {
     return (
-      <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
+      <div className="min-h-screen w-full bg-gray-50/20 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-8 py-16">
           <ErrorState message={loadError} onRetry={() => void handleJourneyLoad()} />
         </div>
@@ -224,7 +227,7 @@ const ViewJourney = () => {
 
   if (!journeyData) {
     return (
-      <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
+      <div className="min-h-screen w-full bg-gray-50/20 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-8 py-16">
           <EmptyState
             title="Journey not found"
@@ -240,16 +243,16 @@ const ViewJourney = () => {
   const progress = calculateProgressSummary(journeyData);
 
   return (
-    <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-8 py-16">
-        <div className="mb-8 flex items-center justify-between gap-4">
+    <div className="min-h-screen w-full overflow-y-auto bg-gray-50/20">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <button
-            className="rounded-sm bg-[#1a1a1a] p-3 font-normal text-white transition-colors"
+            className="rounded-sm bg-[#1a1a1a] p-3 font-normal text-white transition-colors hover:bg-black"
             onClick={handleBackClick}
           >
             Back to Dashboard
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {hasUnsavedChanges ? (
               <span className="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-800">Unsaved changes</span>
             ) : (
@@ -267,8 +270,8 @@ const ViewJourney = () => {
         </div>
 
         <div className="mb-8">
-          <h1 className="mb-4 text-4xl font-light tracking-tight text-gray-900">{journeyData.courseName}</h1>
-          <div className="flex items-center gap-6 text-gray-600 font-normal">
+          <h1 className="mb-4 text-3xl font-light tracking-tight text-gray-900 sm:text-4xl">{journeyData.courseName}</h1>
+          <div className="flex flex-wrap items-center gap-3 text-gray-600 font-normal sm:gap-6">
             <span>Created on {formatDate(journeyData.dateCreated)}</span>
             <span>•</span>
             <span>{progress.totalTopics} topics</span>
@@ -277,8 +280,8 @@ const ViewJourney = () => {
           </div>
         </div>
 
-        <div className="mb-10 rounded-lg border border-gray-100 bg-white p-8 shadow-sm">
-          <div className="mb-6 flex items-center justify-between">
+        <div className="mb-10 rounded-lg border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="mb-2 text-xl font-light text-gray-900">Learning Progress</h2>
               <p className="text-gray-600 font-normal">
@@ -301,8 +304,8 @@ const ViewJourney = () => {
           {persistError ? <p className="mt-3 text-sm text-red-700">{persistError}</p> : null}
         </div>
 
-        <InsightsPanel plan={journeyData} progress={progress} />
-        <ProgressTimeline subtopics={journeyData.subtopics} />
+        {featureFlags.enableInsights ? <InsightsPanel plan={journeyData} progress={progress} /> : null}
+        {featureFlags.enableInsights ? <ProgressTimeline subtopics={journeyData.subtopics} /> : null}
 
         <div className="mb-8">
           <h2 className="mb-8 text-2xl font-light tracking-tight text-gray-900">Learning Path</h2>
@@ -322,24 +325,26 @@ const ViewJourney = () => {
           </div>
         </div>
 
-        <div className="flex justify-center gap-4 pt-8">
-          <button
-            type="button"
-            onClick={() => void handleExportCsv()}
-            disabled={csvStatus === 'loading'}
-            className="rounded-lg border border-gray-200 bg-white px-8 py-3 font-normal text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {csvStatus === 'loading' ? 'Exporting CSV...' : 'Export CSV'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleExportPdf()}
-            disabled={pdfStatus === 'loading'}
-            className="rounded-lg bg-gray-900 px-8 py-3 font-normal text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {pdfStatus === 'loading' ? 'Exporting PDF...' : 'Export PDF'}
-          </button>
-        </div>
+        {featureFlags.enableExport ? (
+          <div className="flex flex-col justify-center gap-3 pt-8 sm:flex-row sm:gap-4">
+            <button
+              type="button"
+              onClick={() => void handleExportCsv()}
+              disabled={csvStatus === 'loading'}
+              className="rounded-lg border border-gray-200 bg-white px-8 py-3 font-normal text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {csvStatus === 'loading' ? 'Exporting CSV...' : 'Export CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleExportPdf()}
+              disabled={pdfStatus === 'loading'}
+              className="rounded-lg bg-gray-900 px-8 py-3 font-normal text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              {pdfStatus === 'loading' ? 'Exporting PDF...' : 'Export PDF'}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

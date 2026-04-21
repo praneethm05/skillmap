@@ -21,7 +21,7 @@ export default function Toast({ toasts, onDismiss }: ToastProps) {
   }
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[60] space-y-2">
+    <div className="pointer-events-none fixed right-4 top-4 z-[60] space-y-2" aria-live="polite" aria-atomic="true">
       {toasts.map((toast) => (
         <div
           key={toast.id}

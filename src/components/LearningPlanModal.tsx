@@ -86,16 +86,16 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-lg shadow-lg max-w-md w-full mx-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
+      <div className="mx-4 w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-lg" role="dialog" aria-modal="true" aria-labelledby="learning-plan-modal-title">
         
         {/* Step 1: Input */}
         {modalStep === 'input' && (
           <div className="p-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-light text-gray-900 mb-3">
-                What would you like to learn?
-              </h2>
+                <h2 id="learning-plan-modal-title" className="text-2xl font-light text-gray-900 mb-3">
+                  What would you like to learn?
+                </h2>
               <p className="text-gray-500 font-normal">
                 Enter goals and preferences to generate your learning roadmap
               </p>
@@ -109,6 +109,7 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
                 placeholder="e.g., Machine Learning, React.js, Data Structures"
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent font-normal"
                 autoFocus
+                aria-label="Learning topic"
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && canGenerate) {
                     void runGeneration();
@@ -127,6 +128,7 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
                   }))
                 }
                 className="px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                aria-label="Current skill level"
               >
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
@@ -145,6 +147,7 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
                 }
                 placeholder="Weekly hours"
                 className="px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                aria-label="Weekly hours"
               />
             </div>
 
@@ -162,6 +165,7 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
                 }
                 placeholder="Target weeks"
                 className="px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                aria-label="Target weeks"
               />
               <label className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700">
                 Test failure
@@ -174,6 +178,7 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
                       forceFailure: event.target.checked,
                     }))
                   }
+                  aria-label="Simulate generation failure"
                 />
               </label>
             </div>

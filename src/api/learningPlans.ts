@@ -1,8 +1,8 @@
 import type { LearningGoalInput, LearningPlan, SkillOverview } from '../types/domain';
 import type { ApiClient } from './client';
-import { mockApiClient } from './mockClient';
+import { apiClient } from './index';
 
-const client: ApiClient = mockApiClient;
+const client: ApiClient = apiClient;
 
 export const getSkillOverviews = async (): Promise<SkillOverview[]> =>
   client.get<SkillOverview[]>('/skills');

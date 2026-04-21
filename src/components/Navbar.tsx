@@ -20,8 +20,8 @@ const Navbar = () => {
 
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-gray-200/60">
-      <div className="max-w-7xl mx-auto px-6">
+    <nav className="sticky top-0 z-50 w-full border-b border-gray-200/70 bg-white/90 backdrop-blur-md" aria-label="Main navigation">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex justify-between items-center h-16">
 
           <div className="flex items-center">
@@ -37,19 +37,22 @@ const Navbar = () => {
           </div>
 
       
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-6">
             <Link 
               to={'/dashboard'}
+              className="rounded px-2 py-1 text-sm text-gray-700 transition-colors hover:text-gray-900"
             >
               Dashboard
       </Link>
             <Link 
-              to={'/skills'}
+              to={'/journey'}
+              className="rounded px-2 py-1 text-sm text-gray-700 transition-colors hover:text-gray-900"
             >
-              Skills
+              Journey
             </Link>
             <Link 
-             to={'/progress'}
+             to={'/journey'}
+             className="rounded px-2 py-1 text-sm text-gray-700 transition-colors hover:text-gray-900"
             >
               Progress
             </Link>
@@ -57,10 +60,10 @@ const Navbar = () => {
             {/* Clean logout button */}
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-2 px-4 py-2 text-white-600  bg-[#1a1a1a] hover:text-red-200 rounded-lg transition-all duration-200"
+              className="flex items-center space-x-2 rounded-lg bg-[#1a1a1a] px-4 py-2 text-white transition-all duration-200 hover:bg-black"
             >
               <LogOut className="w-4 h-4" />
-              <span className="text-sm font-medium color-white-">Sign Out</span>
+              <span className="text-sm font-medium">Sign Out</span>
             </button>
           </div>
 
@@ -68,7 +71,9 @@ const Navbar = () => {
           <div className="md:hidden">
             <button
               onClick={toggleMobileMenu}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all duration-200"
+              className="rounded-lg p-2 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900"
+              aria-label={isMobileMenuOpen ? 'Close mobile menu' : 'Open mobile menu'}
+              aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? (
                 <X className="w-5 h-5" />
@@ -86,27 +91,27 @@ const Navbar = () => {
             : 'max-h-0 opacity-0 overflow-hidden'
         }`}>
           <div className="space-y-1 pt-4 border-t border-gray-100">
-            <a 
-              href="#dashboard" 
-              className="block px-4 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors duration-200 text-sm font-medium"
+            <Link
+              to="/dashboard"
+              className="block rounded-lg px-4 py-3 text-sm font-medium text-gray-600 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Dashboard
-            </a>
-            <a 
-              href="#skills" 
-              className="block px-4 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors duration-200 text-sm font-medium"
+            </Link>
+            <Link
+              to="/journey"
+              className="block rounded-lg px-4 py-3 text-sm font-medium text-gray-600 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Skills
-            </a>
-            <a 
-              href="#progress" 
-              className="block px-4 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors duration-200 text-sm font-medium"
+              Journey
+            </Link>
+            <Link
+              to="/journey"
+              className="block rounded-lg px-4 py-3 text-sm font-medium text-gray-600 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Progress
-            </a>
+            </Link>
             
             {/* Mobile logout */}
             <button

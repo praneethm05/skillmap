@@ -33,27 +33,36 @@ export default function DashboardControls({
   };
 
   return (
-    <div className="mb-10 grid grid-cols-1 gap-4 rounded-2xl border border-gray-200 bg-white p-5 md:grid-cols-3">
+    <div className="mb-10 grid grid-cols-1 gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-soft)] md:grid-cols-3">
+      <label className="sr-only" htmlFor="dashboard-search-input">Search skills</label>
       <input
+        id="dashboard-search-input"
         value={search}
         onChange={handleSearch}
         placeholder="Search skills or subtopics"
-        className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none"
+        className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-2.5 text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+        aria-label="Search skills and subtopics"
       />
+      <label className="sr-only" htmlFor="dashboard-filter-select">Filter by status</label>
       <select
+        id="dashboard-filter-select"
         value={filter}
         onChange={handleFilter}
-        className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none"
+        className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-2.5 text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+        aria-label="Filter by status"
       >
         <option value="all">All Status</option>
         <option value="not-started">Not Started</option>
         <option value="in-progress">In Progress</option>
         <option value="completed">Completed</option>
       </select>
+      <label className="sr-only" htmlFor="dashboard-sort-select">Sort skills</label>
       <select
+        id="dashboard-sort-select"
         value={sort}
         onChange={handleSort}
-        className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-gray-500 focus:outline-none"
+        className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-2.5 text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+        aria-label="Sort skills"
       >
         <option value="progress">Sort: Completion</option>
         <option value="remaining">Sort: Remaining Topics</option>

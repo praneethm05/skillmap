@@ -29,6 +29,7 @@ export default function JourneyEditorRow({
         <button
           onClick={() => onToggle(subtopic.id)}
           disabled={isSaving}
+          aria-label={subtopic.isCompleted ? `Mark ${subtopic.title} as incomplete` : `Mark ${subtopic.title} as complete`}
           className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-all duration-200 ${
             subtopic.isCompleted
               ? 'border-green-600 bg-green-600'
@@ -49,6 +50,7 @@ export default function JourneyEditorRow({
               type="text"
               value={subtopic.title}
               onChange={(event) => onTitleChange(subtopic.id, event.target.value)}
+              aria-label={`Title for topic ${index + 1}`}
               className={`w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-lg focus:border-gray-300 focus:outline-none ${
                 subtopic.isCompleted ? 'text-gray-600 line-through' : 'text-gray-900'
               }`}
@@ -59,6 +61,7 @@ export default function JourneyEditorRow({
               max={99}
               value={subtopic.estimatedHours}
               onChange={(event) => onHoursChange(subtopic.id, Number(event.target.value))}
+              aria-label={`Estimated hours for ${subtopic.title}`}
               className="w-20 rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-700 focus:border-gray-400 focus:outline-none"
             />
           </div>
@@ -67,6 +70,7 @@ export default function JourneyEditorRow({
             value={subtopic.description}
             onChange={(event) => onDescriptionChange(subtopic.id, event.target.value)}
             rows={2}
+            aria-label={`Description for ${subtopic.title}`}
             className={`w-full rounded-md border border-gray-200 px-3 py-2 text-sm leading-relaxed text-gray-700 focus:border-gray-400 focus:outline-none ${
               subtopic.isCompleted ? 'opacity-75' : ''
             }`}

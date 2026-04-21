@@ -1,9 +1,9 @@
 import type { LearningPlan, ProgressSummary } from '../types/domain';
 import type { ApiClient } from './client';
-import { mockApiClient } from './mockClient';
+import { apiClient } from './index';
 import { calculateProgressSummary } from '../utils/progress';
 
-const client: ApiClient = mockApiClient;
+const client: ApiClient = apiClient;
 
 interface ToggleSubtopicPayload {
   isCompleted: boolean;
