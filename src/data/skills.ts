@@ -1,18 +1,6 @@
-export type SkillStatus = "not-started" | "in-progress" | "completed";
+import type { SkillOverview } from '../types/domain';
 
-export type Subtopic = {
-  id: string;
-  name: string;
-  status: SkillStatus;
-};
-
-export type Skill = {
-  id: string;
-  name: string;
-  subtopics: Subtopic[];
-};
-
-export const skillData: Skill[] = [
+export const skillData: SkillOverview[] = [
   {
     id: "react",
     name: "React",

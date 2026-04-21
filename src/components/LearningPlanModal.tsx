@@ -10,26 +10,22 @@ type LearningPlanModalProps = {
 const LearningPlanModal = ({ isOpen, onClose, onViewPlan }: LearningPlanModalProps) => {
   const [modalStep, setModalStep] = useState(1); 
   const [skillInput, setSkillInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleNext = () => {
     if (skillInput.trim()) {
       setModalStep(2);
-      setIsGenerating(true);
       
       // Mock loading - simulate API call
       setTimeout(() => {
-        setIsGenerating(false);
         setModalStep(3);
       }, 2000);
     }
   };
 
   const handleClose = () => {
-  
+    
     setModalStep(1);
     setSkillInput('');
-    setIsGenerating(false);
     onClose();
   };
 

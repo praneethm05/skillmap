@@ -1,13 +1,33 @@
 import SkillCard from '../components/SkillCard';
 import AddTaskButton from '../components/AddTaskButton';
-import { skillData } from '../data/skills';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import LearningPlanModal from '../components/LearningPlanModal';
 import { useNavigate } from 'react-router-dom';
+import { getSkillOverviews } from '../api/learningPlans';
+import type { SkillOverview } from '../types/domain';
 
 const SkillDashboard = () => {
-    const navigate=useNavigate();
+    const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [skills, setSkills] = useState<SkillOverview[]>([]);
+
+    useEffect(() => {
+      let isMounted = true;
+
+      const loadSkills = async () => {
+        const response = await getSkillOverviews();
+        if (isMounted) {
+          setSkills(response);
+        }
+      };
+
+      void loadSkills();
+
+      return () => {
+        isMounted = false;
+      };
+    }, []);
+
       const handleAddClick = () => {
     setIsModalOpen(true);
   };
@@ -37,11 +57,11 @@ const SkillDashboard = () => {
 
         {/* Clean grid with optimal spacing */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {skillData.map(skill => {
+          {skills.map((skill) => {
             const total = skill.subtopics.length;
-            const completed = skill.subtopics.filter(s => s.status === 'completed').length;
+            const completed = skill.subtopics.filter((s) => s.status === 'completed').length;
             const subtopicsLeft = total - completed;
-            const progress = Math.round((completed / total) * 100);
+            const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
             return (
               <SkillCard
@@ -58,7 +78,7 @@ const SkillDashboard = () => {
 
 
       <AddTaskButton onClick={handleAddClick} />
-          <LearningPlanModal 
+          <LearningPlanModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onViewPlan={handleViewPlan}

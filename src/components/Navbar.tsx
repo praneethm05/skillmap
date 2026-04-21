@@ -1,7 +1,7 @@
 import  { useState } from 'react';
 import { LogOut, Menu, X } from 'lucide-react';
 import { useClerk } from '@clerk/clerk-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

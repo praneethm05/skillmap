@@ -1,28 +1,63 @@
 import React, { useState } from 'react';
-import { dummyJourneyData } from '../data/journeyData';
-import type { JourneyData } from '../data/journeyData';
 import { useNavigate } from 'react-router-dom';
+import { getLearningPlan } from '../api/learningPlans';
+import { toggleSubtopicCompletion as toggleSubtopicCompletionApi } from '../api/progress';
+import type { LearningPlan } from '../types/domain';
 
 const ViewJourney = () => {
-  const [journeyData, setJourneyData] = useState<JourneyData>(dummyJourneyData);
+  const [journeyData, setJourneyData] = useState<LearningPlan | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadJourneyData = async () => {
+      const response = await getLearningPlan('journey-1');
+      if (isMounted) {
+        setJourneyData(response);
+      }
+    };
+
+    void loadJourneyData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const toggleSubtopicCompletion = (subtopicId: string) => {
-    setJourneyData(prevData => {
-      const updatedSubtopics = prevData.subtopics.map(subtopic =>
-        subtopic.id === subtopicId
-          ? { ...subtopic, isCompleted: !subtopic.isCompleted }
-          : subtopic
-      );
+    setJourneyData((prevData) => {
+      if (!prevData) {
+        return prevData;
+      }
 
-      // Recalculate completed topics count
-      const completedCount = updatedSubtopics.filter(s => s.isCompleted).length;
+      const currentSubtopic = prevData.subtopics.find((subtopic) => subtopic.id === subtopicId);
+      if (!currentSubtopic) {
+        return prevData;
+      }
+
+      const nextIsCompleted = !currentSubtopic.isCompleted;
+      void toggleSubtopicCompletionRequest(prevData.id, subtopicId, nextIsCompleted);
+
+      const updatedSubtopics = prevData.subtopics.map((subtopic) =>
+        subtopic.id === subtopicId ? { ...subtopic, isCompleted: nextIsCompleted } : subtopic,
+      );
+      const completedCount = updatedSubtopics.filter((subtopic) => subtopic.isCompleted).length;
 
       return {
         ...prevData,
         subtopics: updatedSubtopics,
-        completedTopics: completedCount
+        completedTopics: completedCount,
       };
     });
+  };
+
+  const toggleSubtopicCompletionRequest = async (
+    planId: string,
+    subtopicId: string,
+    isCompleted: boolean,
+  ) => {
+    const updatedPlan = await toggleSubtopicCompletionApi(planId, subtopicId, isCompleted);
+    setJourneyData(updatedPlan);
   };
 
   const formatDate = (dateString: string) => {
@@ -40,9 +75,19 @@ const ViewJourney = () => {
     navigate('/dashboard');
   };
 
+  if (!journeyData) {
+    return (
+      <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-8 py-16">
+          <p className="text-gray-600">Loading journey...</p>
+        </div>
+      </div>
+    );
+  }
+
   const progressPercentage = Math.round((journeyData.completedTopics / journeyData.totalTopics) * 100);
   const completedHours = journeyData.subtopics
-    .filter(s => s.isCompleted)
+    .filter((s) => s.isCompleted)
     .reduce((total, subtopic) => total + subtopic.estimatedHours, 0);
 
   return (

@@ -1,24 +1,6 @@
-// data/journeyData.ts
+import type { LearningPlan } from '../types/domain';
 
-export interface Subtopic {
-  id: string;
-  title: string;
-  description: string;
-  isCompleted: boolean;
-  estimatedHours: number;
-}
-
-export interface JourneyData {
-  id: string;
-  courseName: string;
-  dateCreated: string;
-  totalTopics: number;
-  completedTopics: number;
-  estimatedTotalHours: number;
-  subtopics: Subtopic[];
-}
-
-export const dummyJourneyData: JourneyData = {
+export const dummyJourneyData: LearningPlan = {
   id: "journey-1",
   courseName: "Machine Learning Fundamentals",
   dateCreated: "2025-01-15",
