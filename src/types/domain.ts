@@ -17,6 +17,7 @@ export interface LearningGoalInput {
   currentLevel?: 'beginner' | 'intermediate' | 'advanced';
   weeklyHours?: number;
   targetWeeks?: number;
+  forceFailure?: boolean;
 }
 
 export interface PlanSubtopic {

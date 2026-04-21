@@ -68,7 +68,7 @@ const generateLearningPlan = (input: LearningGoalInput): LearningPlan => {
   );
 
   return {
-    id: 'journey-1',
+    id: `journey-${Date.now()}`,
     courseName: `${normalizedTopic} Roadmap`,
     dateCreated: new Date().toISOString().slice(0, 10),
     totalTopics: subtopics.length,
@@ -113,7 +113,17 @@ export const mockApiClient: ApiClient = {
     const parts = parsePath(path);
 
     if (parts[0] === 'learning-plans' && parts[1] === 'generate') {
-      const plan = generateLearningPlan(body as LearningGoalInput);
+      const input = body as LearningGoalInput;
+
+      await new Promise<void>((resolve) => {
+        window.setTimeout(() => resolve(), 900);
+      });
+
+      if (input.forceFailure || input.topic.toLowerCase().includes('[fail]')) {
+        throw new Error('Mock generation failed. Please retry.');
+      }
+
+      const plan = generateLearningPlan(input);
       mockStore.plan = plan;
       return clone(plan) as TResponse;
     }

@@ -14,6 +14,7 @@ import DashboardControls, {
   type DashboardFilter,
   type DashboardSort,
 } from '../components/dashboard/DashboardControls';
+import type { LearningPlan } from '../types/domain';
 
 interface SkillViewModel {
   id: string;
@@ -63,7 +64,7 @@ const toSkillViewModel = (skill: SkillOverview): SkillViewModel => {
 
 const SkillDashboard = () => {
     const navigate = useNavigate();
-    const { pushToast } = useAppData();
+    const { pushToast, setActivePlanId, setProgressSnapshot } = useAppData();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [skills, setSkills] = useState<SkillOverview[]>([]);
     const [search, setSearch] = useState('');
@@ -162,7 +163,18 @@ const SkillDashboard = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
   };
-  const handleViewPlan = () => {
+  const handlePlanGenerated = (plan: LearningPlan) => {
+    setActivePlanId(plan.id);
+    setProgressSnapshot(plan.id, {
+      totalTopics: plan.totalTopics,
+      completedTopics: plan.completedTopics,
+      completionPercentage:
+        plan.totalTopics > 0 ? Math.round((plan.completedTopics / plan.totalTopics) * 100) : 0,
+      completedHours: plan.subtopics
+        .filter((subtopic) => subtopic.isCompleted)
+        .reduce((total, subtopic) => total + subtopic.estimatedHours, 0),
+      estimatedTotalHours: plan.estimatedTotalHours,
+    });
     navigate('/journey');
     handleCloseModal();
   };
@@ -246,7 +258,7 @@ const SkillDashboard = () => {
           <LearningPlanModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onViewPlan={handleViewPlan}
+        onPlanGenerated={handlePlanGenerated}
       />
     </div>
   );
