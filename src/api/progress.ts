@@ -1,6 +1,7 @@
 import type { LearningPlan, ProgressSummary } from '../types/domain';
 import type { ApiClient } from './client';
 import { mockApiClient } from './mockClient';
+import { calculateProgressSummary } from '../utils/progress';
 
 const client: ApiClient = mockApiClient;
 
@@ -19,17 +20,5 @@ export const toggleSubtopicCompletion = async (
   );
 
 export const getProgressSummary = (plan: LearningPlan): ProgressSummary => {
-  const completedHours = plan.subtopics
-    .filter((subtopic) => subtopic.isCompleted)
-    .reduce((total, subtopic) => total + subtopic.estimatedHours, 0);
-  const completionPercentage =
-    plan.totalTopics > 0 ? Math.round((plan.completedTopics / plan.totalTopics) * 100) : 0;
-
-  return {
-    totalTopics: plan.totalTopics,
-    completedTopics: plan.completedTopics,
-    completionPercentage,
-    completedHours,
-    estimatedTotalHours: plan.estimatedTotalHours,
-  };
+  return calculateProgressSummary(plan);
 };

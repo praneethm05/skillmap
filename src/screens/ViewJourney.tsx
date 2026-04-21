@@ -1,20 +1,26 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLearningPlan } from '../api/learningPlans';
-import {
-  getProgressSummary,
-  toggleSubtopicCompletion as toggleSubtopicCompletionApi,
-} from '../api/progress';
+import { getProgressSummary, toggleSubtopicCompletion as toggleSubtopicCompletionApi } from '../api/progress';
 import type { LearningPlan } from '../types/domain';
 import LoadingSkeleton from '../components/ui/LoadingSkeleton';
 import EmptyState from '../components/ui/EmptyState';
 import ErrorState from '../components/ui/ErrorState';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import { useAppData } from '../state/AppDataProvider';
+import JourneyEditorRow from '../components/journey/JourneyEditorRow';
+import InsightsPanel from '../components/insights/InsightsPanel';
+import ProgressTimeline from '../components/insights/ProgressTimeline';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
+import { saveJourneyEdits } from '../api/journey';
+import { calculateProgressSummary, withRecalculatedProgress } from '../utils/progress';
+import { exportProgressCsv, exportProgressPdf } from '../api/export';
 
 const ViewJourney = () => {
   const { setActivePlanId, setProgressSnapshot, pushToast } = useAppData();
   const [journeyData, setJourneyData] = useState<LearningPlan | null>(null);
+  const [lastSavedPlan, setLastSavedPlan] = useState<LearningPlan | null>(null);
+
   const {
     execute: loadJourney,
     status: loadStatus,
@@ -22,20 +28,36 @@ const ViewJourney = () => {
   } = useAsyncAction(() => getLearningPlan('journey-1'));
   const {
     execute: saveToggle,
-    status: saveStatus,
+    status: toggleStatus,
   } = useAsyncAction(toggleSubtopicCompletionApi);
+  const {
+    execute: persistJourney,
+    status: persistStatus,
+    error: persistError,
+  } = useAsyncAction(saveJourneyEdits);
+  const { execute: exportCsv, status: csvStatus } = useAsyncAction(exportProgressCsv);
+  const { execute: exportPdf, status: pdfStatus } = useAsyncAction(exportProgressPdf);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!journeyData || !lastSavedPlan) {
+      return false;
+    }
+
+    return JSON.stringify(journeyData) !== JSON.stringify(lastSavedPlan);
+  }, [journeyData, lastSavedPlan]);
+
+  const { confirmNavigation } = useUnsavedChangesGuard(hasUnsavedChanges);
 
   const handleJourneyLoad = useCallback(async () => {
     try {
       const response = await loadJourney();
-      setJourneyData(response);
-      setActivePlanId(response.id);
-      setProgressSnapshot(response.id, getProgressSummary(response));
+      const normalized = withRecalculatedProgress(response);
+      setJourneyData(normalized);
+      setLastSavedPlan(normalized);
+      setActivePlanId(normalized.id);
+      setProgressSnapshot(normalized.id, getProgressSummary(normalized));
     } catch {
-      pushToast({
-        type: 'error',
-        message: 'Unable to load learning journey. Please retry.',
-      });
+      pushToast({ type: 'error', message: 'Unable to load learning journey. Please retry.' });
     }
   }, [loadJourney, pushToast, setActivePlanId, setProgressSnapshot]);
 
@@ -43,48 +65,92 @@ const ViewJourney = () => {
     void handleJourneyLoad();
   }, [handleJourneyLoad]);
 
-  const toggleSubtopicCompletion = (subtopicId: string) => {
-    setJourneyData((prevData) => {
-      if (!prevData) {
-        return prevData;
+  const updatePlan = (updater: (current: LearningPlan) => LearningPlan) => {
+    setJourneyData((prev) => {
+      if (!prev) {
+        return prev;
       }
 
-      const currentSubtopic = prevData.subtopics.find((subtopic) => subtopic.id === subtopicId);
-      if (!currentSubtopic) {
-        return prevData;
-      }
-
-      const nextIsCompleted = !currentSubtopic.isCompleted;
-      void toggleSubtopicCompletionRequest(prevData.id, subtopicId, nextIsCompleted);
-
-      const updatedSubtopics = prevData.subtopics.map((subtopic) =>
-        subtopic.id === subtopicId ? { ...subtopic, isCompleted: nextIsCompleted } : subtopic,
-      );
-      const completedCount = updatedSubtopics.filter((subtopic) => subtopic.isCompleted).length;
-
-      return {
-        ...prevData,
-        subtopics: updatedSubtopics,
-        completedTopics: completedCount,
-      };
+      const updated = withRecalculatedProgress(updater(prev));
+      setProgressSnapshot(updated.id, calculateProgressSummary(updated));
+      return updated;
     });
   };
 
-  const toggleSubtopicCompletionRequest = async (
-    planId: string,
-    subtopicId: string,
-    isCompleted: boolean,
-  ) => {
+  const toggleSubtopicCompletion = (subtopicId: string) => {
+    if (!journeyData) {
+      return;
+    }
+
+    const currentSubtopic = journeyData.subtopics.find((subtopic) => subtopic.id === subtopicId);
+    if (!currentSubtopic) {
+      return;
+    }
+
+    const nextIsCompleted = !currentSubtopic.isCompleted;
+
+    updatePlan((current) => ({
+      ...current,
+      subtopics: current.subtopics.map((subtopic) =>
+        subtopic.id === subtopicId ? { ...subtopic, isCompleted: nextIsCompleted } : subtopic,
+      ),
+    }));
+
+    void (async () => {
+      try {
+        const updatedPlan = await saveToggle(journeyData.id, subtopicId, nextIsCompleted);
+        const normalized = withRecalculatedProgress(updatedPlan);
+        setJourneyData(normalized);
+        setProgressSnapshot(normalized.id, calculateProgressSummary(normalized));
+      } catch {
+        pushToast({ type: 'error', message: 'Could not save completion update. Restoring server state.' });
+        await handleJourneyLoad();
+      }
+    })();
+  };
+
+  const handleTitleChange = (subtopicId: string, value: string) => {
+    updatePlan((current) => ({
+      ...current,
+      subtopics: current.subtopics.map((subtopic) =>
+        subtopic.id === subtopicId ? { ...subtopic, title: value } : subtopic,
+      ),
+    }));
+  };
+
+  const handleDescriptionChange = (subtopicId: string, value: string) => {
+    updatePlan((current) => ({
+      ...current,
+      subtopics: current.subtopics.map((subtopic) =>
+        subtopic.id === subtopicId ? { ...subtopic, description: value } : subtopic,
+      ),
+    }));
+  };
+
+  const handleHoursChange = (subtopicId: string, value: number) => {
+    const sanitizedHours = Number.isFinite(value) ? Math.max(1, Math.min(value, 99)) : 1;
+
+    updatePlan((current) => ({
+      ...current,
+      subtopics: current.subtopics.map((subtopic) =>
+        subtopic.id === subtopicId ? { ...subtopic, estimatedHours: sanitizedHours } : subtopic,
+      ),
+    }));
+  };
+
+  const handleSaveEdits = async () => {
+    if (!journeyData) {
+      return;
+    }
+
     try {
-      const updatedPlan = await saveToggle(planId, subtopicId, isCompleted);
-      setJourneyData(updatedPlan);
-      setProgressSnapshot(updatedPlan.id, getProgressSummary(updatedPlan));
+      const saved = await persistJourney(journeyData);
+      setJourneyData(saved);
+      setLastSavedPlan(saved);
+      setProgressSnapshot(saved.id, calculateProgressSummary(saved));
+      pushToast({ type: 'success', message: 'Journey edits saved.' });
     } catch {
-      pushToast({
-        type: 'error',
-        message: 'Could not save your update. Please try again.',
-      });
-      await handleJourneyLoad();
+      pushToast({ type: 'error', message: 'Failed to save journey edits. Please retry.' });
     }
   };
 
@@ -93,14 +159,47 @@ const ViewJourney = () => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
   const navigate = useNavigate();
 
   const handleBackClick = () => {
-    navigate('/dashboard');
+    confirmNavigation(() => navigate('/dashboard'));
+  };
+
+  const handleExportCsv = async () => {
+    if (!journeyData) {
+      return;
+    }
+
+    try {
+      const csv = await exportCsv(journeyData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${journeyData.courseName.replace(/\s+/g, '-').toLowerCase()}-progress.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      pushToast({ type: 'success', message: 'CSV export complete.' });
+    } catch {
+      pushToast({ type: 'error', message: 'CSV export failed. Please retry.' });
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!journeyData) {
+      return;
+    }
+
+    try {
+      await exportPdf(journeyData);
+      pushToast({ type: 'info', message: 'PDF export placeholder executed.' });
+    } catch {
+      pushToast({ type: 'error', message: 'PDF export failed. Please retry.' });
+    }
   };
 
   if (loadStatus === 'loading') {
@@ -138,139 +237,107 @@ const ViewJourney = () => {
     );
   }
 
-  const progressPercentage = Math.round((journeyData.completedTopics / journeyData.totalTopics) * 100);
-  const completedHours = journeyData.subtopics
-    .filter((s) => s.isCompleted)
-    .reduce((total, subtopic) => total + subtopic.estimatedHours, 0);
+  const progress = calculateProgressSummary(journeyData);
 
   return (
     <div className="min-h-screen w-screen bg-gray-50 overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-8 py-16">
-        
-        {/* Header Section */}
-        <div className="mb-12">
-          <div className="mb-8">
-            <button className="text-white bg-[#1a1a1a] rounded-sm p-3 font-normal mb-6 flex items-center transition-colors" onClick={handleBackClick}>
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Dashboard
+      <div className="max-w-5xl mx-auto px-8 py-16">
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <button
+            className="rounded-sm bg-[#1a1a1a] p-3 font-normal text-white transition-colors"
+            onClick={handleBackClick}
+          >
+            Back to Dashboard
+          </button>
+          <div className="flex items-center gap-3">
+            {hasUnsavedChanges ? (
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-800">Unsaved changes</span>
+            ) : (
+              <span className="rounded-full bg-green-100 px-3 py-1 text-xs text-green-800">All changes saved</span>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleSaveEdits()}
+              disabled={!hasUnsavedChanges || persistStatus === 'loading'}
+              className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              {persistStatus === 'loading' ? 'Saving...' : 'Save Edits'}
             </button>
-            
-            <h1 className="text-4xl font-light text-gray-900 mb-4 tracking-tight">
-              {journeyData.courseName}
-            </h1>
-            
-            <div className="flex items-center gap-6 text-gray-600 font-normal">
-              <span>Created on {formatDate(journeyData.dateCreated)}</span>
-              <span>•</span>
-              <span>{journeyData.totalTopics} topics</span>
-              <span>•</span>
-              <span>{journeyData.estimatedTotalHours} hours estimated</span>
-            </div>
-          </div>
-
-          {/* Progress Overview */}
-          <div className="bg-white rounded-lg p-8 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-light text-gray-900 mb-2">Learning Progress</h2>
-                <p className="text-gray-600 font-normal">
-                  {journeyData.completedTopics} of {journeyData.totalTopics} topics completed
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-light text-gray-900 mb-1">
-                  {progressPercentage}%
-                </div>
-                <div className="text-sm text-gray-600">
-                  {completedHours}h / {journeyData.estimatedTotalHours}h
-                </div>
-              </div>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-100 rounded-full h-2">
-              <div 
-                className="bg-gray-900 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progressPercentage}%` }}
-              ></div>
-            </div>
           </div>
         </div>
 
-        {/* Subtopics Section */}
         <div className="mb-8">
-          <h2 className="text-2xl font-light text-gray-900 mb-8 tracking-tight">
-            Learning Path
-          </h2>
-          
+          <h1 className="mb-4 text-4xl font-light tracking-tight text-gray-900">{journeyData.courseName}</h1>
+          <div className="flex items-center gap-6 text-gray-600 font-normal">
+            <span>Created on {formatDate(journeyData.dateCreated)}</span>
+            <span>•</span>
+            <span>{progress.totalTopics} topics</span>
+            <span>•</span>
+            <span>{progress.estimatedTotalHours} hours estimated</span>
+          </div>
+        </div>
+
+        <div className="mb-10 rounded-lg border border-gray-100 bg-white p-8 shadow-sm">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="mb-2 text-xl font-light text-gray-900">Learning Progress</h2>
+              <p className="text-gray-600 font-normal">
+                {progress.completedTopics} of {progress.totalTopics} topics completed
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="mb-1 text-3xl font-light text-gray-900">{progress.completionPercentage}%</div>
+              <div className="text-sm text-gray-600">
+                {progress.completedHours}h / {progress.estimatedTotalHours}h
+              </div>
+            </div>
+          </div>
+          <div className="h-2 w-full rounded-full bg-gray-100">
+            <div
+              className="h-2 rounded-full bg-gray-900 transition-all duration-300"
+              style={{ width: `${progress.completionPercentage}%` }}
+            />
+          </div>
+          {persistError ? <p className="mt-3 text-sm text-red-700">{persistError}</p> : null}
+        </div>
+
+        <InsightsPanel plan={journeyData} progress={progress} />
+        <ProgressTimeline subtopics={journeyData.subtopics} />
+
+        <div className="mb-8">
+          <h2 className="mb-8 text-2xl font-light tracking-tight text-gray-900">Learning Path</h2>
           <div className="space-y-4">
             {journeyData.subtopics.map((subtopic, index) => (
-              <div 
+              <JourneyEditorRow
                 key={subtopic.id}
-                className={`bg-white rounded-lg p-6 shadow-sm border transition-all duration-200 ${
-                  subtopic.isCompleted 
-                    ? 'border-green-200 bg-green-50' 
-                    : 'border-gray-100 hover:border-gray-200'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  {/* Custom Checkbox */}
-                   <button
-  onClick={() => toggleSubtopicCompletion(subtopic.id)}
-  disabled={saveStatus === 'loading'}
-  className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
-    subtopic.isCompleted
-      ? 'bg-green-600 border-green-600'
-      : 'border-gray-300 hover:border-gray-400'
-  } ${saveStatus === 'loading' ? 'opacity-70 cursor-not-allowed' : ''}`}
->
-  {subtopic.isCompleted && (
-    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-    </svg>
-  )}
-</button>
-
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-gray-400">
-                          {String(index + 1).padStart(2, '0')}
-                        </span>
-                        <h3 className={`text-lg font-normal ${
-                          subtopic.isCompleted ? 'text-gray-600 line-through' : 'text-gray-900'
-                        }`}>
-                          {subtopic.title}
-                        </h3>
-                      </div>
-                      <span className="text-sm text-gray-600 font-normal">
-                        {subtopic.estimatedHours}h
-                      </span>
-                    </div>
-                    
-                    <p className={`text-gray-600 font-normal leading-relaxed ${
-                      subtopic.isCompleted ? 'opacity-70' : ''
-                    }`}>
-                      {subtopic.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                subtopic={subtopic}
+                index={index}
+                isSaving={toggleStatus === 'loading'}
+                onToggle={toggleSubtopicCompletion}
+                onTitleChange={handleTitleChange}
+                onDescriptionChange={handleDescriptionChange}
+                onHoursChange={handleHoursChange}
+              />
             ))}
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-4 justify-center pt-8">
-          <button className="px-8 py-3 text-white-900  bg-gray-900 font-normal border border-white-200 rounded-lg hover:bg-white-50 transition-colors">
-            Export Progress
+        <div className="flex justify-center gap-4 pt-8">
+          <button
+            type="button"
+            onClick={() => void handleExportCsv()}
+            disabled={csvStatus === 'loading'}
+            className="rounded-lg border border-gray-200 bg-white px-8 py-3 font-normal text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {csvStatus === 'loading' ? 'Exporting CSV...' : 'Export CSV'}
           </button>
-          <button className="px-8 py-3 bg-gray-900 text-white font-normal rounded-lg hover:bg-gray-800 transition-colors">
-            Continue Learning
+          <button
+            type="button"
+            onClick={() => void handleExportPdf()}
+            disabled={pdfStatus === 'loading'}
+            className="rounded-lg bg-gray-900 px-8 py-3 font-normal text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            {pdfStatus === 'loading' ? 'Exporting PDF...' : 'Export PDF'}
           </button>
         </div>
       </div>
