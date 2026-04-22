@@ -15,6 +15,7 @@ import DashboardControls, {
   type DashboardSort,
 } from '../components/dashboard/DashboardControls';
 import { calculateProgressSummary } from '../utils/progress';
+import DailyFocusCard from '../components/dashboard/DailyFocusCard';
 
 interface SkillViewModel {
   id: string;
@@ -186,7 +187,7 @@ const SkillDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-gray-50/20">
+    <div className="min-h-screen w-full overflow-y-auto bg-gray-50/20 page-enter">
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_290px] lg:gap-8 lg:px-8 lg:py-16">
         <div>
           <div className="mb-7 flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-text-muted)] sm:mb-10">
@@ -200,6 +201,22 @@ const SkillDashboard = () => {
             <p className="mb-6 max-w-2xl text-sm text-[var(--color-text-muted)] sm:text-base">
               Start where you left off. Keep the pace steady with a focused plan for this week.
             </p>
+
+            {focusSkill ? (
+              <DailyFocusCard
+                title={focusSkill.name}
+                estimatedMinutes={25}
+                reason={`You're ${focusSkill.progress}% through this track. Completing one focused block now keeps your momentum high.`}
+                onStartSession={() =>
+                  navigate('/session', {
+                    state: {
+                      title: focusSkill.name,
+                      minutes: 25,
+                    },
+                  })
+                }
+              />
+            ) : null}
 
             {focusSkill ? (
               <SkillCard
@@ -305,6 +322,7 @@ const SkillDashboard = () => {
                       onComplete={() => void handleMarkSkillComplete(skill.id)}
                       disableActions={completeStatus === 'loading'}
                       variant={variant}
+                      animationDelayMs={Math.min(index * 40, 220)}
                     />
                   );
                 })}

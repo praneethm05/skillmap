@@ -6,6 +6,7 @@ import { ClerkProvider } from '@clerk/clerk-react';
 import { BrowserRouter } from 'react-router-dom';
 import { AppDataProvider } from './state/AppDataProvider';
 import { appEnv, getStartupIssues } from './config/env';
+import CommandPalette from './components/ui/CommandPalette';
 import './index.css'
 
 const startupIssues = getStartupIssues();
@@ -45,6 +46,7 @@ ReactDOM.createRoot(rootElement).render(
         <AppDataProvider>
           <BrowserRouter>
             <App />
+            <CommandPalette />
           </BrowserRouter>
         </AppDataProvider>
       </ClerkProvider>

@@ -9,10 +9,16 @@ export default function ProgressTimeline({ subtopics }: ProgressTimelineProps) {
     .filter((subtopic) => subtopic.isCompleted)
     .slice(-5)
     .reverse();
+  const totalHours = timelineItems.reduce((sum, item) => sum + item.estimatedHours, 0);
 
   return (
     <section className="mb-10 rounded-xl border border-gray-200 bg-white p-6">
       <h2 className="mb-4 text-xl font-light text-gray-900">Recent Progress</h2>
+      {timelineItems.length > 0 ? (
+        <p className="mb-4 text-sm text-gray-600">
+          This week you completed {timelineItems.length} topics and invested {totalHours} focused hours.
+        </p>
+      ) : null}
       {timelineItems.length === 0 ? (
         <p className="text-sm text-gray-600">Complete a topic to start your progress timeline.</p>
       ) : (

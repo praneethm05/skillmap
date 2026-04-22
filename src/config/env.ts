@@ -14,6 +14,9 @@ export const appEnv = {
   useMockApi: toBoolean(import.meta.env.VITE_USE_MOCK_API, true),
   enableInsights: toBoolean(import.meta.env.VITE_ENABLE_INSIGHTS, true),
   enableExport: toBoolean(import.meta.env.VITE_ENABLE_EXPORT, true),
+  enableSocial: toBoolean(import.meta.env.VITE_ENABLE_SOCIAL, false),
+  enableSharing: toBoolean(import.meta.env.VITE_ENABLE_SHARING, false),
+  enableAccountability: toBoolean(import.meta.env.VITE_ENABLE_ACCOUNTABILITY, false),
 };
 
 export const getStartupIssues = (): string[] => {

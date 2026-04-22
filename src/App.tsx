@@ -4,6 +4,7 @@ import SkillDashboard from './screens/SkillDashboard';
 import LoginScreen from './screens/LoginScreen';
 import MainLayout from './layouts/MainLayout';
 import ViewJourney from './screens/ViewJourney';
+import SessionMode from './screens/SessionMode';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           </MainLayout>
         }
       />
+      <Route path="/session" element={<SessionMode />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

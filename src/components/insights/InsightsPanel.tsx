@@ -1,28 +1,11 @@
 import type { LearningPlan, ProgressSummary } from '../../types/domain';
+import { deriveInsightSignals, forecastCompletionDate } from '../../utils/insights';
+import { useMemo, useState } from 'react';
 
 interface InsightsPanelProps {
   plan: LearningPlan;
   progress: ProgressSummary;
 }
-
-const dayMs = 1000 * 60 * 60 * 24;
-
-const estimateCompletionDate = (plan: LearningPlan) => {
-  const remainingTopics = Math.max(plan.totalTopics - plan.completedTopics, 0);
-  const daysToComplete = Math.max(remainingTopics * 2, 1);
-  const completionDate = new Date(Date.now() + daysToComplete * dayMs);
-
-  return completionDate.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-};
-
-const getNextRecommendedTopic = (plan: LearningPlan): string => {
-  const next = plan.subtopics.find((subtopic) => !subtopic.isCompleted);
-  return next ? next.title : 'All topics completed';
-};
 
 const getWeeklyTargetStatus = (progress: ProgressSummary): string => {
   const weeklyTarget = 6;
@@ -42,26 +25,61 @@ const getStreakDays = (progress: ProgressSummary): number => {
 };
 
 export default function InsightsPanel({ plan, progress }: InsightsPanelProps) {
+  const [weeklyHours, setWeeklyHours] = useState(6);
+  const signals = useMemo(
+    () => deriveInsightSignals(plan, progress, weeklyHours),
+    [plan, progress, weeklyHours],
+  );
+  const remainingTopics = Math.max(plan.totalTopics - plan.completedTopics, 0);
+  const averageHoursPerTopic =
+    plan.totalTopics > 0 ? Math.max(plan.estimatedTotalHours / plan.totalTopics, 1) : 3;
+  const scenarioDate = forecastCompletionDate(remainingTopics, weeklyHours, averageHoursPerTopic);
+
   return (
     <section className="mb-10 rounded-xl border border-gray-200 bg-white p-6">
       <h2 className="mb-4 text-xl font-light text-gray-900">Insights</h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Weekly target</p>
-          <p className="mt-2 text-sm text-gray-800">{getWeeklyTargetStatus(progress)}</p>
+          <p className="text-xs uppercase tracking-wide text-gray-500">Pace trend</p>
+          <p className="mt-2 text-sm text-gray-800">{signals.paceTrend}</p>
         </div>
         <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Streak</p>
-          <p className="mt-2 text-sm text-gray-800">{getStreakDays(progress)} day streak</p>
+          <p className="text-xs uppercase tracking-wide text-gray-500">Drop-off risk</p>
+          <p className="mt-2 text-sm text-gray-800 capitalize">{signals.dropOffRisk}</p>
         </div>
         <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
           <p className="text-xs uppercase tracking-wide text-gray-500">Estimated finish</p>
-          <p className="mt-2 text-sm text-gray-800">{estimateCompletionDate(plan)}</p>
+          <p className="mt-2 text-sm text-gray-800">{signals.estimatedCompletionDate}</p>
         </div>
         <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Next topic</p>
-          <p className="mt-2 text-sm text-gray-800">{getNextRecommendedTopic(plan)}</p>
+          <p className="text-xs uppercase tracking-wide text-gray-500">Next best action</p>
+          <p className="mt-2 text-sm text-gray-800">{signals.nextBestAction}</p>
         </div>
+      </div>
+
+      <div className="mt-5 rounded-lg border border-gray-100 bg-gray-50 p-4">
+        <p className="text-xs uppercase tracking-wide text-gray-500">Forecast scenario</p>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="flex items-center gap-3 text-sm text-gray-800">
+            Weekly hours
+            <input
+              type="range"
+              min={2}
+              max={14}
+              step={1}
+              value={weeklyHours}
+              onChange={(event) => setWeeklyHours(Number(event.target.value))}
+            />
+            <span>{weeklyHours}h</span>
+          </label>
+          <p className="text-sm text-gray-700">At this pace, finish by {scenarioDate}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+        <span>{getWeeklyTargetStatus(progress)}</span>
+        <span>•</span>
+        <span>{getStreakDays(progress)} day streak</span>
       </div>
     </section>
   );

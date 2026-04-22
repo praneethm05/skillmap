@@ -17,6 +17,11 @@
   --color-accent-soft: #dce9e0;
   --shadow-soft: 0 10px 30px rgba(19, 36, 27, 0.08);
   --shadow-raised: 0 18px 48px rgba(19, 36, 27, 0.12);
+  --motion-fast: 160ms;
+  --motion-normal: 260ms;
+  --motion-slow: 420ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.1);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -77,4 +82,50 @@ textarea {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardStaggerIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseCheck {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.page-enter {
+  animation: pageEnter var(--motion-normal) var(--ease-standard);
+}
+
+.card-stagger {
+  animation: cardStaggerIn var(--motion-normal) var(--ease-standard) both;
+}
+
+.toggle-pulse {
+  animation: pulseCheck var(--motion-fast) var(--ease-spring);
 }

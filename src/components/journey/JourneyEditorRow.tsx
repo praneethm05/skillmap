@@ -3,27 +3,58 @@ import type { PlanSubtopic } from '../../types/domain';
 interface JourneyEditorRowProps {
   subtopic: PlanSubtopic;
   index: number;
+  total: number;
   isSaving: boolean;
+  dependencyHint?: string;
+  isDragging?: boolean;
+  isDragOver?: boolean;
   onToggle: (subtopicId: string) => void;
   onTitleChange: (subtopicId: string, value: string) => void;
   onDescriptionChange: (subtopicId: string, value: string) => void;
   onHoursChange: (subtopicId: string, value: number) => void;
+  onMoveUp: (subtopicId: string) => void;
+  onMoveDown: (subtopicId: string) => void;
+  onDragStart: (subtopicId: string) => void;
+  onDragEnd: () => void;
+  onDragOverTarget: (targetSubtopicId: string) => void;
+  onDropOver: (targetSubtopicId: string) => void;
 }
 
 export default function JourneyEditorRow({
   subtopic,
   index,
+  total,
   isSaving,
+  dependencyHint,
+  isDragging = false,
+  isDragOver = false,
   onToggle,
   onTitleChange,
   onDescriptionChange,
   onHoursChange,
+  onMoveUp,
+  onMoveDown,
+  onDragStart,
+  onDragEnd,
+  onDragOverTarget,
+  onDropOver,
 }: JourneyEditorRowProps) {
   return (
     <div
+      draggable
+      onDragStart={() => onDragStart(subtopic.id)}
+      onDragEnd={onDragEnd}
+      onDragOver={(event) => {
+        event.preventDefault();
+        onDragOverTarget(subtopic.id);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        onDropOver(subtopic.id);
+      }}
       className={`rounded-lg border bg-white p-6 shadow-sm transition-all duration-200 ${
         subtopic.isCompleted ? 'border-green-200 bg-green-50' : 'border-gray-100 hover:border-gray-200'
-      }`}
+      } ${isDragging ? 'scale-[0.99] opacity-70' : ''} ${isDragOver ? 'ring-2 ring-[var(--color-accent-soft)]' : ''}`}
     >
       <div className="flex items-start gap-4">
         <button
@@ -44,7 +75,7 @@ export default function JourneyEditorRow({
         </button>
 
         <div className="min-w-0 flex-1">
-          <div className="mb-3 flex items-center gap-3">
+          <div className="mb-3 flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium text-gray-400">{String(index + 1).padStart(2, '0')}</span>
             <input
               type="text"
@@ -64,6 +95,27 @@ export default function JourneyEditorRow({
               aria-label={`Estimated hours for ${subtopic.title}`}
               className="w-20 rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-700 focus:border-gray-400 focus:outline-none"
             />
+
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onMoveUp(subtopic.id)}
+                disabled={index === 0}
+                className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 disabled:opacity-40"
+                aria-label={`Move ${subtopic.title} up`}
+              >
+                Up
+              </button>
+              <button
+                type="button"
+                onClick={() => onMoveDown(subtopic.id)}
+                disabled={index === total - 1}
+                className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 disabled:opacity-40"
+                aria-label={`Move ${subtopic.title} down`}
+              >
+                Down
+              </button>
+            </div>
           </div>
 
           <textarea
@@ -75,6 +127,10 @@ export default function JourneyEditorRow({
               subtopic.isCompleted ? 'opacity-75' : ''
             }`}
           />
+
+          {dependencyHint ? (
+            <p className="mt-2 text-xs text-amber-700">{dependencyHint}</p>
+          ) : null}
         </div>
       </div>
     </div>

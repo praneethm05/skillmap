@@ -8,6 +8,7 @@ interface SkillCardProps {
   onComplete?: () => void;
   disableActions?: boolean;
   variant?: 'primary' | 'secondary' | 'compact';
+  animationDelayMs?: number;
 }
 
 const SkillCard = ({
@@ -20,6 +21,7 @@ const SkillCard = ({
   onComplete,
   disableActions = false,
   variant = 'secondary',
+  animationDelayMs = 0,
 }: SkillCardProps) => {
   const progressPercentage = Math.min(100, Math.max(0, progress));
   const completedSubtopics = totalSubtopics - subtopicsLeft;
@@ -41,7 +43,8 @@ const SkillCard = ({
   
   return (
     <div
-      className={`group w-full overflow-hidden rounded-3xl border transition-all duration-300 hover:-translate-y-0.5 ${variantClasses[variant]}`}
+      className={`group card-stagger w-full overflow-hidden rounded-3xl border transition-all duration-300 hover:-translate-y-0.5 ${variantClasses[variant]}`}
+      style={{ animationDelay: `${animationDelayMs}ms` }}
     >
       <div className="flex h-full min-h-[220px] flex-col justify-between p-6 sm:p-8">
         
