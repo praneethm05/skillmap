@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toggleSubtopicCompletion } from '../api/progress';
 import { useAppData } from '../state/AppDataProvider';
+import type { LearningPlan } from '../types/domain';
+import { getLearningPlan } from '../api/learningPlans';
 
 interface SessionState {
   planId?: string;
@@ -34,6 +36,7 @@ export default function SessionMode() {
   const [isCompleteStep, setIsCompleteStep] = useState(false);
   const [reflection, setReflection] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [completedTopicTitle, setCompletedTopicTitle] = useState<string | null>(null);
 
   const storageKey = useMemo(
     () => `skillmap:session-notes:${session.subtopicId ?? 'default'}`,
@@ -73,6 +76,24 @@ export default function SessionMode() {
     }
   }, [isRunning, pushToast, secondsLeft]);
 
+  useEffect(() => {
+    const loadTopicTitle = async () => {
+      if (!session.planId || !session.subtopicId) {
+        return;
+      }
+
+      try {
+        const plan: LearningPlan = await getLearningPlan(session.planId);
+        const topic = plan.subtopics.find((subtopic) => subtopic.id === session.subtopicId);
+        setCompletedTopicTitle(topic?.title ?? null);
+      } catch {
+        setCompletedTopicTitle(null);
+      }
+    };
+
+    void loadTopicTitle();
+  }, [session.planId, session.subtopicId]);
+
   const handleDone = async () => {
     setIsSaving(true);
 
@@ -83,7 +104,13 @@ export default function SessionMode() {
 
       localStorage.removeItem(storageKey);
       pushToast({ type: 'success', message: 'Session saved. Great progress today.' });
-      navigate('/journey');
+      navigate('/journey', {
+        state: {
+          sessionCompleted: true,
+          completedTopicTitle: session.title,
+          reflection,
+        },
+      });
     } catch {
       pushToast({ type: 'error', message: 'Could not save session completion. Please retry.' });
     } finally {
@@ -172,6 +199,12 @@ export default function SessionMode() {
               >
                 {isSaving ? 'Saving...' : 'Save reflection and return'}
               </button>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3 text-sm text-[var(--color-text-muted)]">
+              {completedTopicTitle
+                ? `You are about to record progress for: ${completedTopicTitle}.`
+                : 'Your completion and reflection will be recorded in your journey.'}
             </div>
           </section>
         )}

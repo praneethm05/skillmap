@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getLearningPlan } from '../api/learningPlans';
 import { getProgressSummary, toggleSubtopicCompletion as toggleSubtopicCompletionApi } from '../api/progress';
 import type { LearningPlan } from '../types/domain';
@@ -35,6 +35,7 @@ const emptyRailState: JourneyRailState = {
 
 const ViewJourney = () => {
   const { setActivePlanId, setProgressSnapshot, pushToast } = useAppData();
+  const location = useLocation();
   const [journeyData, setJourneyData] = useState<LearningPlan | null>(null);
   const [lastSavedPlan, setLastSavedPlan] = useState<LearningPlan | null>(null);
   const [draggedSubtopicId, setDraggedSubtopicId] = useState<string | null>(null);
@@ -104,6 +105,21 @@ const ViewJourney = () => {
   React.useEffect(() => {
     void handleJourneyLoad();
   }, [handleJourneyLoad]);
+
+  React.useEffect(() => {
+    const state = location.state as
+      | { sessionCompleted?: boolean; completedTopicTitle?: string; reflection?: string }
+      | undefined;
+
+    if (state?.sessionCompleted) {
+      pushToast({
+        type: 'success',
+        message: state.completedTopicTitle
+          ? `Session recorded for ${state.completedTopicTitle}.`
+          : 'Session recorded successfully.',
+      });
+    }
+  }, [location.state, pushToast]);
 
   const updatePlan = (updater: (current: LearningPlan) => LearningPlan) => {
     setJourneyData((prev) => {
@@ -371,6 +387,9 @@ const ViewJourney = () => {
             >
               {persistStatus === 'loading' ? 'Saving...' : 'Save Edits'}
             </button>
+            {!hasUnsavedChanges ? (
+              <span className="text-xs text-[var(--color-text-muted)]">Last saved just now</span>
+            ) : null}
           </div>
         </div>
 
@@ -383,6 +402,10 @@ const ViewJourney = () => {
             <span>•</span>
             <span>{progress.estimatedTotalHours} hours estimated</span>
           </div>
+        </div>
+
+        <div className="mb-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3 text-sm text-[var(--color-text)]">
+          Next action: {nextTopic ? `start ${nextTopic.title}` : 'generate a new roadmap from dashboard'}
         </div>
 
         <div className="mb-10 rounded-lg border border-gray-100 bg-white p-5 shadow-sm sm:p-8">

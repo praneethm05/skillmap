@@ -13,7 +13,19 @@ export const dummyJourneyData: LearningPlan = {
       title: "Introduction to Machine Learning",
       description: "Understanding the basics of ML, types of learning, and real-world applications",
       isCompleted: true,
-      estimatedHours: 2
+      estimatedHours: 2,
+      resources: [
+        {
+          title: "What is Machine Learning?",
+          type: "video",
+          url: "https://www.youtube.com/watch?v=f_uwKZIAeM0"
+        },
+        {
+          title: "Introduction to ML Concepts",
+          type: "article",
+          url: "https://developers.google.com/machine-learning/crash-course/ml-intro"
+        }
+      ]
     },
     {
       id: "subtopic-2",

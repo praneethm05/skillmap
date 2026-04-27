@@ -66,10 +66,10 @@ export default function DashboardControls({
         className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-2.5 text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
         aria-label="Sort skills"
       >
-        <option value="progress">Sort: Completion</option>
-        <option value="remaining">Sort: Remaining Topics</option>
-        <option value="hours">Sort: Estimated Hours</option>
-        <option value="name">Sort: Name</option>
+        <option value="progress">Recommended: Most progress</option>
+        <option value="remaining">Least topics left</option>
+        <option value="hours">Most study hours</option>
+        <option value="name">A to Z</option>
       </select>
     </div>
   );

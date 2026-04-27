@@ -73,6 +73,7 @@ const SkillDashboard = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<DashboardFilter>('all');
   const [sort, setSort] = useState<DashboardSort>('progress');
+  const [showRoadmapDetails, setShowRoadmapDetails] = useState(false);
   const {
     execute: loadSkills,
     status: loadStatus,
@@ -199,8 +200,12 @@ const SkillDashboard = () => {
           <section id="today-board" className="mb-12 animate-[fadeIn_300ms_ease-out]">
             <h1 className="mb-3 text-3xl font-light tracking-tight text-gray-900 sm:text-4xl">Today Board</h1>
             <p className="mb-6 max-w-2xl text-sm text-[var(--color-text-muted)] sm:text-base">
-              Start where you left off. Keep the pace steady with a focused plan for this week.
+              Start here. Pick one focus task and continue your learning streak.
             </p>
+
+            <div className="mb-5 text-sm text-[var(--color-text-muted)] italic">
+              Next step: {focusSkill ? `continue ${focusSkill.name}` : 'generate your first learning plan'}
+            </div>
 
             {focusSkill ? (
               <DailyFocusCard
@@ -239,17 +244,17 @@ const SkillDashboard = () => {
               <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
                 <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Track momentum</p>
                 <p className="mt-2 text-2xl font-light text-[var(--color-text)]">{activeTracks}</p>
-                <p className="mt-1 text-sm text-[var(--color-text-muted)]">active tracks this week</p>
+                <p className="mt-1 text-sm text-[var(--color-text-muted)]">skills currently in progress</p>
               </article>
               <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
                 <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Completion goal</p>
                 <p className="mt-2 text-2xl font-light text-[var(--color-text)]">{overallProgress}%</p>
-                <p className="mt-1 text-sm text-[var(--color-text-muted)]">overall completion progress</p>
+                <p className="mt-1 text-sm text-[var(--color-text-muted)]">overall learning completion</p>
               </article>
               <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
                 <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Topic target</p>
                 <p className="mt-2 text-2xl font-light text-[var(--color-text)]">{completedTopics}/{totalTopics}</p>
-                <p className="mt-1 text-sm text-[var(--color-text-muted)]">topics completed so far</p>
+                <p className="mt-1 text-sm text-[var(--color-text-muted)]">topics finished so far</p>
               </article>
             </div>
           </section>
@@ -257,13 +262,22 @@ const SkillDashboard = () => {
           <section id="roadmap-board" className="mb-12">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-xl font-light text-[var(--color-text)]">Roadmap</h2>
-              <button
-                type="button"
-                onClick={() => navigate('/journey')}
-                className="rounded-lg border border-[var(--color-border)] bg-white px-4 py-2 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-muted)]"
-              >
-                Open Journey
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRoadmapDetails((current) => !current)}
+                  className="rounded-lg border border-[var(--color-border)] bg-white px-4 py-2 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-muted)]"
+                >
+                  {showRoadmapDetails ? 'Hide details' : 'Show details'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/journey')}
+                  className="rounded-lg border border-[var(--color-border)] bg-white px-4 py-2 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-muted)]"
+                >
+                  Open journey
+                </button>
+              </div>
             </div>
 
             <DashboardControls
@@ -304,7 +318,7 @@ const SkillDashboard = () => {
               />
             ) : null}
 
-            {loadStatus === 'success' && skillCards.length > 0 ? (
+            {loadStatus === 'success' && skillCards.length > 0 && showRoadmapDetails ? (
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:gap-6 xl:grid-cols-3">
                 {skillCards.map((skill, index) => {
                   const variant: SkillCardVariant =
@@ -326,6 +340,14 @@ const SkillDashboard = () => {
                     />
                   );
                 })}
+              </div>
+            ) : null}
+
+            {loadStatus === 'success' && skillCards.length > 0 && !showRoadmapDetails ? (
+              <div className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  You have {skillCards.length} active roadmap cards. Use "Show details" when you want to review everything.
+                </p>
               </div>
             ) : null}
           </section>

@@ -23,7 +23,7 @@ export default function DailyFocusCard({
           onClick={onStartSession}
           className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm text-white transition-colors hover:bg-[var(--color-accent-strong)]"
         >
-          Start 25-min session
+          Start now
         </button>
       </div>
     </article>

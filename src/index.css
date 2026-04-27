@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  font-family: "SF Pro Text", "Avenir Next", "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Avenir Next", "Helvetica Neue", sans-serif;
   line-height: 1.5;
   font-weight: 400;
 

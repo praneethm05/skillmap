@@ -128,6 +128,29 @@ export default function JourneyEditorRow({
             }`}
           />
 
+          {subtopic.resources && subtopic.resources.length > 0 ? (
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Learning Resources</h4>
+              <ul className="flex flex-col gap-2">
+                {subtopic.resources.map((resource, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm">
+                    <span className="flex h-5 w-5 items-center justify-center rounded bg-gray-100 text-xs text-gray-500">
+                      {resource.type === 'video' ? '📺' : resource.type === 'article' ? '📝' : resource.type === 'course' ? '🎓' : '📚'}
+                    </span>
+                    <a
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      {resource.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {dependencyHint ? (
             <p className="mt-2 text-xs text-amber-700">{dependencyHint}</p>
           ) : null}

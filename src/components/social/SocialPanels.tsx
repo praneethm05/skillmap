@@ -43,7 +43,10 @@ export default function SocialPanels({ plan }: SocialPanelsProps) {
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-4">
         <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Private sharing</p>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Create a private link to share your progress snapshot with trusted peers.
+          Create a private mock link to share your progress snapshot with trusted peers.
+        </p>
+        <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+          Note: this is a demo link in the current frontend-only build and not yet backed by server privacy controls.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
@@ -66,7 +69,7 @@ export default function SocialPanels({ plan }: SocialPanelsProps) {
           </p>
         </article>
         <article className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Mentor summary payload</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Coach summary preview</p>
           <pre className="mt-2 max-h-28 overflow-auto rounded bg-white p-2 text-xs text-[var(--color-text)]">
 {JSON.stringify(mentorSummary, null, 2)}
           </pre>
