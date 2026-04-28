@@ -23,7 +23,9 @@ export class LearningPlanService {
       userId,
       courseName: aiResponse.courseName,
       subtopics,
-      // Aggregates will be calculated via Mongoose pre('save') middleware
+      totalTopics: subtopics.length,
+      estimatedTotalHours: subtopics.reduce((acc, topic) => acc + topic.estimatedHours, 0)
+      // Aggregates will also be calculated via Mongoose pre('save') middleware
     });
 
     return await plan.save();

@@ -61,9 +61,9 @@ export class AiGenerationService {
       // Safely parse JSON
       const parsedJSON = this.extractJSON(rawText);
       return parsedJSON as DeepSeekResponse;
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AI Service] Failed to generate plan:', error);
-      throw new Error('AI Generation failed. Ensure Ollama is running and the model is loaded.');
+      throw new Error(`AI Generation failed: ${error.message}`);
     }
   }
 

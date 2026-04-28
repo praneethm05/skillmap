@@ -14,9 +14,13 @@ export const createLearningPlan = async (
   try {
     const input: LearningGoalInput = req.body;
     
-    // We expect auth middleware to attach userId
-    // Currently hardcoding a dummy ID until Clerk auth middleware is added
-    const userId = (req as any).userId || 'dummy-user-123';
+    // Clerk attaches the user details onto the request object via auth
+    const userId = (req as any).auth?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized: No user session found.' });
+      return;
+    }
 
     if (!input.topic) {
       res.status(400).json({ error: 'Missing required parameter: topic' });
@@ -43,7 +47,11 @@ export const getUserPlans = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = (req as any).userId || 'dummy-user-123';
+    const userId = (req as any).auth?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     const plans = await learningPlanService.getUserPlans(userId);
     
     res.status(200).json(plans);
@@ -61,7 +69,12 @@ export const markTopicComplete = async (
   try {
     const planId = req.params.planId as string;
     const topicId = req.params.topicId as string;
-    const userId = (req as any).userId || 'dummy-user-123';
+    const userId = (req as any).auth?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
 
     const updatedPlan = await learningPlanService.markTopicComplete(userId, planId, topicId);
     
