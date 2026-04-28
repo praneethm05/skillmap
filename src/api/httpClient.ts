@@ -14,11 +14,31 @@ const createApiError = async (response: Response): Promise<Error> => {
   return new Error(message);
 };
 
+const getAuthHeaders = async (): Promise<HeadersInit> => {
+  try {
+    const token = await (window as any).Clerk?.session?.getToken();
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+  } catch (e) {
+    console.warn('Failed to retrieve Clerk token:', e);
+  }
+  return {};
+};
+
 const request = async <TResponse>(
   input: RequestInfo | URL,
   init: RequestInit,
 ): Promise<TResponse> => {
-  const response = await fetch(input, init);
+  const authHeaders = await getAuthHeaders();
+  
+  const response = await fetch(input, {
+    ...init,
+    headers: {
+      ...authHeaders,
+      ...init.headers,
+    },
+  });
 
   if (!response.ok) {
     throw await createApiError(response);

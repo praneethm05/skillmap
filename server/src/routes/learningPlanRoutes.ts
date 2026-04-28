@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createLearningPlan, getUserPlans, markTopicComplete } from '../controllers/learningPlanController';
+import { createLearningPlan, getUserPlans, getPlanById, markTopicComplete } from '../controllers/learningPlanController';
 
 const router = Router();
 
@@ -14,6 +14,12 @@ router.post('/generate', createLearningPlan);
  * Description: Fetches all active plans for the authenticated user
  */
 router.get('/', getUserPlans);
+
+/**
+ * Route: GET /api/v1/learning-plans/:planId
+ * Description: Fetches a single learning plan by ID
+ */
+router.get('/:planId', getPlanById);
 
 /**
  * Route: PATCH /api/v1/learning-plans/:planId/topics/:topicId/complete

@@ -34,8 +34,9 @@ const emptyRailState: JourneyRailState = {
 };
 
 const ViewJourney = () => {
-  const { setActivePlanId, setProgressSnapshot, pushToast } = useAppData();
+  const { activePlanId, setActivePlanId, setProgressSnapshot, pushToast } = useAppData();
   const location = useLocation();
+  const navigate = useNavigate();
   const [journeyData, setJourneyData] = useState<LearningPlan | null>(null);
   const [lastSavedPlan, setLastSavedPlan] = useState<LearningPlan | null>(null);
   const [draggedSubtopicId, setDraggedSubtopicId] = useState<string | null>(null);
@@ -43,7 +44,12 @@ const ViewJourney = () => {
   const [railDraft, setRailDraft] = useState<JourneyRailState>(emptyRailState);
   const [railSaved, setRailSaved] = useState<JourneyRailState>(emptyRailState);
 
-  const loadJourneyPlan = useCallback(() => getLearningPlan('journey-1'), []);
+  const loadJourneyPlan = useCallback(() => {
+    if (!activePlanId) {
+      return Promise.reject(new Error('No active plan found. Please select a plan from your dashboard.'));
+    }
+    return getLearningPlan(activePlanId);
+  }, [activePlanId]);
 
   const {
     execute: loadJourney,
@@ -269,8 +275,6 @@ const ViewJourney = () => {
       day: 'numeric',
     });
   };
-
-  const navigate = useNavigate();
 
   const handleBackClick = () => {
     confirmNavigation(() => navigate('/dashboard'));
