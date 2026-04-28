@@ -1,8 +1,11 @@
+import type { ReactNode } from 'react';
+
 type EmptyStateProps = {
   title: string;
   description: string;
   actionLabel?: string;
   onAction?: () => void;
+  icon?: ReactNode;
 };
 
 export default function EmptyState({
@@ -10,17 +13,29 @@ export default function EmptyState({
   description,
   actionLabel,
   onAction,
+  icon,
 }: EmptyStateProps) {
   return (
-    <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
-      <h3 className="mb-2 text-2xl font-light text-gray-900">{title}</h3>
-      <p className="mx-auto max-w-xl text-gray-600">{description}</p>
+    <div className="glass-card p-10 text-center fade-in-up sm:p-14">
+      {icon ? (
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-accent-soft)]">
+          {icon}
+        </div>
+      ) : null}
+      <h3
+        className="mb-2 text-[var(--color-text)]"
+        style={{ fontSize: 'var(--text-heading)', fontWeight: 600 }}
+      >
+        {title}
+      </h3>
+      <p
+        className="mx-auto mb-6 max-w-md text-[var(--color-text-muted)]"
+        style={{ fontSize: 'var(--text-body)', lineHeight: 1.6 }}
+      >
+        {description}
+      </p>
       {actionLabel && onAction ? (
-        <button
-          type="button"
-          onClick={onAction}
-          className="mt-6 rounded-lg bg-gray-900 px-6 py-3 text-white transition-colors hover:bg-gray-800"
-        >
+        <button type="button" onClick={onAction} className="btn-primary">
           {actionLabel}
         </button>
       ) : null}

@@ -3,7 +3,7 @@ import AddTaskButton from '../components/AddTaskButton';
 import { useCallback, useEffect, useState } from 'react';
 import LearningPlanModal from '../components/LearningPlanModal';
 import { useNavigate } from 'react-router-dom';
-import { getSkillOverviews, markSkillComplete } from '../api/learningPlans';
+import { getSkillOverviews } from '../api/learningPlans';
 import type { LearningPlan, SkillOverview } from '../types/domain';
 import LoadingSkeleton from '../components/ui/LoadingSkeleton';
 import EmptyState from '../components/ui/EmptyState';
@@ -15,7 +15,7 @@ import DashboardControls, {
   type DashboardSort,
 } from '../components/dashboard/DashboardControls';
 import { calculateProgressSummary } from '../utils/progress';
-import DailyFocusCard from '../components/dashboard/DailyFocusCard';
+import { useUser } from '@clerk/clerk-react';
 
 interface SkillViewModel {
   id: string;
@@ -25,6 +25,7 @@ interface SkillViewModel {
   completed: number;
   subtopicsLeft: number;
   estimatedHours: number;
+  nextTopicName: string | undefined;
   hasStatus: (status: DashboardFilter) => boolean;
   searchableText: string;
 }
@@ -37,6 +38,7 @@ const toSkillViewModel = (skill: SkillOverview): SkillViewModel => {
   const subtopicsLeft = total - completed;
   const estimatedHours = total * 3;
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const nextTopic = skill.subtopics.find((subtopic) => subtopic.status !== 'completed');
 
   return {
     id: skill.id,
@@ -46,43 +48,58 @@ const toSkillViewModel = (skill: SkillOverview): SkillViewModel => {
     completed,
     subtopicsLeft,
     estimatedHours,
+    nextTopicName: nextTopic?.name,
     hasStatus: (status: DashboardFilter) => {
-      if (status === 'all') {
-        return true;
-      }
-
-      if (status === 'completed') {
-        return completed === total && total > 0;
-      }
-
-      if (status === 'in-progress') {
-        return completed > 0 && completed < total;
-      }
-
+      if (status === 'all') return true;
+      if (status === 'completed') return completed === total && total > 0;
+      if (status === 'in-progress') return completed > 0 && completed < total;
       return completed === 0;
     },
     searchableText: `${skill.name} ${skill.subtopics.map((subtopic) => subtopic.name).join(' ')}`.toLowerCase(),
   };
 };
 
+const getGreeting = (): string => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};
+
+const getStreakCount = (): number => {
+  try {
+    const raw = localStorage.getItem('skillmap:streak');
+    if (!raw) return 0;
+    const { count, lastDate } = JSON.parse(raw) as { count: number; lastDate: string };
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    if (lastDate === today || lastDate === yesterday) return count;
+    return 0;
+  } catch {
+    return 0;
+  }
+};
+
+const RING_RADIUS = 32;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
 const SkillDashboard = () => {
   const navigate = useNavigate();
-  const { pushToast, setActivePlanId, setProgressSnapshot, activePlanId, progressSnapshots } = useAppData();
+  const { user } = useUser();
+  const { pushToast, setActivePlanId, setProgressSnapshot } = useAppData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [skills, setSkills] = useState<SkillOverview[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<DashboardFilter>('all');
   const [sort, setSort] = useState<DashboardSort>('progress');
-  const [showRoadmapDetails, setShowRoadmapDetails] = useState(false);
   const {
     execute: loadSkills,
     status: loadStatus,
     error: loadError,
   } = useAsyncAction(getSkillOverviews);
-  const {
-    execute: completeSkill,
-    status: completeStatus,
-  } = useAsyncAction(markSkillComplete);
+
+  const streak = getStreakCount();
+  const firstName = user?.firstName ?? 'there';
 
   const handleSkillsLoad = useCallback(async () => {
     try {
@@ -96,42 +113,6 @@ const SkillDashboard = () => {
     }
   }, [loadSkills, pushToast]);
 
-  const handleMarkSkillComplete = useCallback(
-    async (skillId: string) => {
-      const previousSkills = skills;
-      const optimisticSkills = skills.map((skill) =>
-        skill.id === skillId
-          ? {
-              ...skill,
-              subtopics: skill.subtopics.map((subtopic) => ({
-                ...subtopic,
-                status: 'completed' as const,
-              })),
-            }
-          : skill,
-      );
-
-      setSkills(optimisticSkills);
-
-      try {
-        const updatedSkill = await completeSkill(skillId);
-        setSkills((current) =>
-          current.map((skill) => (skill.id === updatedSkill.id ? updatedSkill : skill)),
-        );
-        pushToast({
-          type: 'success',
-          message: `${updatedSkill.name} marked as complete.`,
-        });
-      } catch {
-        setSkills(previousSkills);
-        pushToast({
-          type: 'error',
-          message: 'Could not mark skill as complete. Please try again.',
-        });
-      }
-    },
-    [completeSkill, pushToast, skills],
-  );
 
   const skillCards = skills
     .map(toSkillViewModel)
@@ -141,18 +122,9 @@ const SkillDashboard = () => {
       return matchesSearch && matchesFilter;
     })
     .sort((first, second) => {
-      if (sort === 'name') {
-        return first.name.localeCompare(second.name);
-      }
-
-      if (sort === 'remaining') {
-        return first.subtopicsLeft - second.subtopicsLeft;
-      }
-
-      if (sort === 'hours') {
-        return second.estimatedHours - first.estimatedHours;
-      }
-
+      if (sort === 'name') return first.name.localeCompare(second.name);
+      if (sort === 'remaining') return first.subtopicsLeft - second.subtopicsLeft;
+      if (sort === 'hours') return second.estimatedHours - first.estimatedHours;
       return second.progress - first.progress;
     });
 
@@ -166,20 +138,15 @@ const SkillDashboard = () => {
     skill.subtopics.some((subtopic) => subtopic.status === 'in-progress'),
   ).length;
   const focusSkill = skillCards[0] ?? null;
-  const sprintCandidates = skillCards.slice(0, 3);
-  const activePlanSnapshot = activePlanId ? progressSnapshots[activePlanId] : undefined;
+  const ringOffset = RING_CIRCUMFERENCE * (1 - overallProgress / 100);
 
   useEffect(() => {
     void handleSkillsLoad();
   }, [handleSkillsLoad]);
 
-  const handleAddClick = () => {
-    setIsModalOpen(true);
-  };
+  const handleAddClick = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
   const handlePlanGenerated = (plan: LearningPlan) => {
     setActivePlanId(plan.id);
     setProgressSnapshot(plan.id, calculateProgressSummary(plan));
@@ -187,238 +154,245 @@ const SkillDashboard = () => {
     handleCloseModal();
   };
 
+  const hasSkills = skills.length > 0;
+
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-gray-50/20 page-enter">
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_290px] lg:gap-8 lg:px-8 lg:py-16">
-        <div>
-          <div className="mb-7 flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-text-muted)] sm:mb-10">
-            <a className="rounded-full bg-[var(--color-accent-soft)] px-4 py-1.5 text-[var(--color-accent)]" href="#today-board">Today</a>
-            <a className="rounded-full bg-white px-4 py-1.5" href="#roadmap-board">Roadmap</a>
-            <a className="rounded-full bg-white px-4 py-1.5" href="#insights-board">Insights</a>
+    <div className="min-h-screen w-full overflow-y-auto page-enter">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-14">
+        {/* Personalized greeting */}
+        <header className="mb-10 fade-in-up">
+          <h1
+            className="mb-1 tracking-tight text-[var(--color-text)]"
+            style={{ fontSize: 'var(--text-display)', fontWeight: 300 }}
+          >
+            {getGreeting()}, {firstName}
+          </h1>
+          <p className="text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-body)' }}>
+            {hasSkills
+              ? `You have ${skills.length} learning ${skills.length === 1 ? 'track' : 'tracks'} in progress`
+              : 'Ready to start your first learning journey?'}
+          </p>
+        </header>
+
+        {/* Main grid */}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div>
+            {/* Featured hero card — only when skills exist */}
+            {loadStatus === 'success' && focusSkill && !focusSkill.hasStatus('completed') ? (
+              <section className="glass-card mb-8 p-6 sm:p-8 fade-in-up" style={{ animationDelay: '60ms' }}>
+                <p
+                  className="mb-1 uppercase tracking-widest text-[var(--color-text-subtle)]"
+                  style={{ fontSize: 'var(--text-overline)', fontWeight: 600 }}
+                >
+                  Continue where you left off
+                </p>
+                <h2
+                  className="mb-2 tracking-tight text-[var(--color-text)]"
+                  style={{ fontSize: 'var(--text-heading)', fontWeight: 600 }}
+                >
+                  {focusSkill.name}
+                </h2>
+                <p className="mb-6 text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-body)' }}>
+                  {focusSkill.progress}% complete · {focusSkill.subtopicsLeft} topics remaining
+                  {focusSkill.nextTopicName ? ` · Next: ${focusSkill.nextTopicName}` : ''}
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/session', {
+                        state: {
+                          title: focusSkill.nextTopicName ?? focusSkill.name,
+                          minutes: 25,
+                        },
+                      })
+                    }
+                    className="btn-primary"
+                  >
+                    Start 25-min session
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/journey')}
+                    className="btn-secondary"
+                  >
+                    View journey
+                  </button>
+                </div>
+              </section>
+            ) : null}
+
+            {/* Skills section */}
+            <section>
+              {hasSkills ? (
+                <div className="mb-5 flex items-center justify-between">
+                  <h2
+                    className="text-[var(--color-text)]"
+                    style={{ fontSize: 'var(--text-subheading)', fontWeight: 600 }}
+                  >
+                    Your Skills
+                  </h2>
+                </div>
+              ) : null}
+
+              {loadStatus === 'success' && skillCards.length > 4 ? (
+                <DashboardControls
+                  search={search}
+                  filter={filter}
+                  sort={sort}
+                  onSearchChange={setSearch}
+                  onFilterChange={setFilter}
+                  onSortChange={setSort}
+                  compact
+                />
+              ) : null}
+
+              {loadStatus === 'loading' ? <LoadingSkeleton variant="cards" /> : null}
+
+              {loadStatus === 'error' && loadError ? (
+                <ErrorState message={loadError} onRetry={() => void handleSkillsLoad()} />
+              ) : null}
+
+              {loadStatus === 'success' && !hasSkills ? (
+                <EmptyState
+                  title="Start building your learning path"
+                  description="SkillMap creates personalized roadmaps, tracks your progress with 25-minute focus sessions, and helps you learn deliberately — not randomly."
+                  actionLabel="Create your first plan"
+                  onAction={handleAddClick}
+                  icon={
+                    <svg className="h-10 w-10 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  }
+                />
+              ) : null}
+
+              {loadStatus === 'success' && hasSkills && skillCards.length === 0 ? (
+                <EmptyState
+                  title="No matches found"
+                  description="Try adjusting your search or filter to find your skills."
+                  actionLabel="Reset Filters"
+                  onAction={() => {
+                    setSearch('');
+                    setFilter('all');
+                    setSort('progress');
+                  }}
+                />
+              ) : null}
+
+              {loadStatus === 'success' && skillCards.length > 0 ? (
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {skillCards.map((skill, index) => {
+                    const variant: SkillCardVariant =
+                      index === 0 ? 'primary' : index < 3 ? 'secondary' : 'compact';
+
+                    return (
+                      <SkillCard
+                        key={skill.id}
+                        skillName={skill.name}
+                        progress={skill.progress}
+                        subtopicsLeft={skill.subtopicsLeft}
+                        totalSubtopics={skill.total}
+                        estimatedHours={skill.estimatedHours}
+                        nextTopicName={skill.nextTopicName}
+                        onContinue={() => navigate('/journey')}
+                        disableActions={false}
+                        variant={variant}
+                        animationDelayMs={Math.min(index * 50, 250)}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
+            </section>
           </div>
 
-          <section id="today-board" className="mb-12 animate-[fadeIn_300ms_ease-out]">
-            <h1 className="mb-3 text-3xl font-light tracking-tight text-gray-900 sm:text-4xl">Today Board</h1>
-            <p className="mb-6 max-w-2xl text-sm text-[var(--color-text-muted)] sm:text-base">
-              Start here. Pick one focus task and continue your learning streak.
-            </p>
+          {/* Sidebar — progress hub */}
+          {hasSkills ? (
+            <aside className="hidden lg:block">
+              <div className="sticky top-20 space-y-5">
+                {/* Progress ring card */}
+                <div className="glass-card p-5 fade-in-up" style={{ animationDelay: '120ms' }}>
+                  <p
+                    className="mb-4 uppercase tracking-widest text-[var(--color-text-subtle)]"
+                    style={{ fontSize: 'var(--text-overline)', fontWeight: 600 }}
+                  >
+                    Overall Progress
+                  </p>
+                  <div className="flex items-center gap-5">
+                    <div className="relative h-20 w-20 flex-shrink-0">
+                      <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
+                        <circle
+                          cx="40"
+                          cy="40"
+                          r={RING_RADIUS}
+                          fill="none"
+                          stroke="var(--color-border-light)"
+                          strokeWidth="5"
+                        />
+                        <circle
+                          cx="40"
+                          cy="40"
+                          r={RING_RADIUS}
+                          fill="none"
+                          stroke="var(--color-accent)"
+                          strokeWidth="5"
+                          strokeLinecap="round"
+                          strokeDasharray={RING_CIRCUMFERENCE}
+                          strokeDashoffset={ringOffset}
+                          className="transition-all duration-700 ease-out"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span
+                          className="text-[var(--color-text)]"
+                          style={{ fontSize: 'var(--text-subheading)', fontWeight: 600 }}
+                        >
+                          {overallProgress}%
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[var(--color-text)]" style={{ fontSize: 'var(--text-body)', fontWeight: 500 }}>
+                        {completedTopics} of {totalTopics}
+                      </p>
+                      <p className="text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-caption)' }}>
+                        topics completed
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="mb-5 text-sm text-[var(--color-text-muted)] italic">
-              Next step: {focusSkill ? `continue ${focusSkill.name}` : 'generate your first learning plan'}
-            </div>
+                  <dl className="mt-5 space-y-2 border-t border-[var(--color-border-light)] pt-4" style={{ fontSize: 'var(--text-caption)' }}>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-[var(--color-text-muted)]">Active tracks</dt>
+                      <dd className="text-[var(--color-text)]" style={{ fontWeight: 500 }}>{activeTracks}</dd>
+                    </div>
+                    {streak > 0 ? (
+                      <div className="flex items-center justify-between">
+                        <dt className="text-[var(--color-text-muted)]">Streak</dt>
+                        <dd className="flex items-center gap-1 text-[var(--color-streak)]" style={{ fontWeight: 500 }}>
+                          🔥 {streak} day{streak !== 1 ? 's' : ''}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </div>
 
-            {focusSkill ? (
-              <DailyFocusCard
-                title={focusSkill.name}
-                estimatedMinutes={25}
-                reason={`You're ${focusSkill.progress}% through this track. Completing one focused block now keeps your momentum high.`}
-                onStartSession={() =>
-                  navigate('/session', {
-                    state: {
-                      title: focusSkill.name,
-                      minutes: 25,
-                    },
-                  })
-                }
-              />
-            ) : null}
-
-            {focusSkill ? (
-              <SkillCard
-                skillName={focusSkill.name}
-                progress={focusSkill.progress}
-                subtopicsLeft={focusSkill.subtopicsLeft}
-                totalSubtopics={focusSkill.total}
-                estimatedHours={focusSkill.estimatedHours}
-                onContinue={() => navigate('/journey')}
-                onComplete={() => void handleMarkSkillComplete(focusSkill.id)}
-                disableActions={completeStatus === 'loading'}
-                variant="primary"
-              />
-            ) : null}
-          </section>
-
-          <section className="mb-12">
-            <h2 className="mb-5 text-xl font-light text-[var(--color-text)]">Sprint Goals</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
-                <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Track momentum</p>
-                <p className="mt-2 text-2xl font-light text-[var(--color-text)]">{activeTracks}</p>
-                <p className="mt-1 text-sm text-[var(--color-text-muted)]">skills currently in progress</p>
-              </article>
-              <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
-                <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Completion goal</p>
-                <p className="mt-2 text-2xl font-light text-[var(--color-text)]">{overallProgress}%</p>
-                <p className="mt-1 text-sm text-[var(--color-text-muted)]">overall learning completion</p>
-              </article>
-              <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
-                <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Topic target</p>
-                <p className="mt-2 text-2xl font-light text-[var(--color-text)]">{completedTopics}/{totalTopics}</p>
-                <p className="mt-1 text-sm text-[var(--color-text-muted)]">topics finished so far</p>
-              </article>
-            </div>
-          </section>
-
-          <section id="roadmap-board" className="mb-12">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-light text-[var(--color-text)]">Roadmap</h2>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRoadmapDetails((current) => !current)}
-                  className="rounded-lg border border-[var(--color-border)] bg-white px-4 py-2 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-muted)]"
-                >
-                  {showRoadmapDetails ? 'Hide details' : 'Show details'}
-                </button>
+                {/* Quick action */}
                 <button
                   type="button"
                   onClick={() => navigate('/journey')}
-                  className="rounded-lg border border-[var(--color-border)] bg-white px-4 py-2 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-muted)]"
+                  className="btn-primary w-full"
                 >
-                  Open journey
+                  Continue Journey
                 </button>
               </div>
-            </div>
-
-            <DashboardControls
-              search={search}
-              filter={filter}
-              sort={sort}
-              onSearchChange={setSearch}
-              onFilterChange={setFilter}
-              onSortChange={setSort}
-              compact
-            />
-
-            {loadStatus === 'loading' ? <LoadingSkeleton variant="cards" /> : null}
-
-            {loadStatus === 'error' && loadError ? (
-              <ErrorState message={loadError} onRetry={() => void handleSkillsLoad()} />
-            ) : null}
-
-            {loadStatus === 'success' && skills.length === 0 ? (
-              <EmptyState
-                title="No skills tracked yet"
-                description="Generate a learning plan to populate your dashboard and start tracking progress."
-                actionLabel="Generate Plan"
-                onAction={handleAddClick}
-              />
-            ) : null}
-
-            {loadStatus === 'success' && skills.length > 0 && skillCards.length === 0 ? (
-              <EmptyState
-                title="No matches found"
-                description="Try adjusting your search, filter, or sort options to find your skills."
-                actionLabel="Reset Filters"
-                onAction={() => {
-                  setSearch('');
-                  setFilter('all');
-                  setSort('progress');
-                }}
-              />
-            ) : null}
-
-            {loadStatus === 'success' && skillCards.length > 0 && showRoadmapDetails ? (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:gap-6 xl:grid-cols-3">
-                {skillCards.map((skill, index) => {
-                  const variant: SkillCardVariant =
-                    index === 0 ? 'primary' : index < 3 ? 'secondary' : 'compact';
-
-                  return (
-                    <SkillCard
-                      key={skill.id}
-                      skillName={skill.name}
-                      progress={skill.progress}
-                      subtopicsLeft={skill.subtopicsLeft}
-                      totalSubtopics={skill.total}
-                      estimatedHours={skill.estimatedHours}
-                      onContinue={() => navigate('/journey')}
-                      onComplete={() => void handleMarkSkillComplete(skill.id)}
-                      disableActions={completeStatus === 'loading'}
-                      variant={variant}
-                      animationDelayMs={Math.min(index * 40, 220)}
-                    />
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {loadStatus === 'success' && skillCards.length > 0 && !showRoadmapDetails ? (
-              <div className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  You have {skillCards.length} active roadmap cards. Use "Show details" when you want to review everything.
-                </p>
-              </div>
-            ) : null}
-          </section>
-
-          <section id="insights-board" className="mb-4">
-            <h2 className="mb-5 text-xl font-light text-[var(--color-text)]">Insights</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
-                <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">This week focus</p>
-                <p className="mt-2 text-base text-[var(--color-text)]">
-                  {focusSkill
-                    ? `Continue ${focusSkill.name} to unlock ${focusSkill.subtopicsLeft} remaining topics.`
-                    : 'Generate your first plan to receive guidance.'}
-                </p>
-              </article>
-              <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
-                <p className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Sprint candidates</p>
-                <p className="mt-2 text-base text-[var(--color-text)]">
-                  {sprintCandidates.length > 0
-                    ? sprintCandidates.map((item) => item.name).join(', ')
-                    : 'No candidates available yet.'}
-                </p>
-              </article>
-            </div>
-          </section>
+            </aside>
+          ) : null}
         </div>
-
-        <aside className="hidden lg:block">
-          <div className="sticky top-24 rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)]">
-            <h3 className="text-sm uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Progress Rail</h3>
-            <p className="mt-3 text-3xl font-light text-[var(--color-text)]">{overallProgress}%</p>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">overall learning completion</p>
-            <div className="mt-4 h-2 rounded-full bg-[var(--color-border)]">
-              <div className="h-2 rounded-full bg-[var(--color-accent)]" style={{ width: `${overallProgress}%` }} />
-            </div>
-            <dl className="mt-5 space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <dt className="text-[var(--color-text-muted)]">Completed topics</dt>
-                <dd className="text-[var(--color-text)]">{completedTopics}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-[var(--color-text-muted)]">Active tracks</dt>
-                <dd className="text-[var(--color-text)]">{activeTracks}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-[var(--color-text-muted)]">Active journey</dt>
-                <dd className="text-[var(--color-text)]">
-                  {activePlanSnapshot ? `${activePlanSnapshot.completionPercentage}%` : 'Not started'}
-                </dd>
-              </div>
-            </dl>
-            <button
-              type="button"
-              onClick={() => navigate('/journey')}
-              className="mt-6 w-full rounded-lg bg-[var(--color-accent)] px-4 py-2.5 text-sm text-white transition-colors hover:bg-[var(--color-accent-strong)]"
-            >
-              Continue Journey
-            </button>
-          </div>
-        </aside>
       </div>
 
-      <button
-        type="button"
-        onClick={() => navigate('/journey')}
-        className="fixed bottom-4 left-4 z-40 rounded-full border border-[var(--color-border)] bg-white/95 px-4 py-2 text-sm text-[var(--color-text)] shadow-[var(--shadow-soft)] lg:hidden"
-      >
-        Progress {overallProgress}%
-      </button>
-
-      <AddTaskButton onClick={handleAddClick} />
+      <AddTaskButton onClick={handleAddClick} hidden={isModalOpen || !hasSkills} />
       <LearningPlanModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}

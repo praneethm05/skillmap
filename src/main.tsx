@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppDataProvider } from './state/AppDataProvider';
 import { appEnv, getStartupIssues } from './config/env';
 import CommandPalette from './components/ui/CommandPalette';
+import AuthTokenBridge from './components/auth/AuthTokenBridge';
 import './index.css'
 
 const startupIssues = getStartupIssues();
@@ -43,12 +44,14 @@ ReactDOM.createRoot(rootElement).render(
       startupIssueView
     ) : (
       <ClerkProvider publishableKey={appEnv.clerkPublishableKey}>
-        <AppDataProvider>
-          <BrowserRouter>
-            <App />
-            <CommandPalette />
-          </BrowserRouter>
-        </AppDataProvider>
+        <AuthTokenBridge>
+          <AppDataProvider>
+            <BrowserRouter>
+              <App />
+              <CommandPalette />
+            </BrowserRouter>
+          </AppDataProvider>
+        </AuthTokenBridge>
       </ClerkProvider>
     )}
   </React.StrictMode>

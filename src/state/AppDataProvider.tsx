@@ -24,6 +24,7 @@ interface AppDataContextValue {
 }
 
 const APP_PREFERENCES_KEY = 'skillmap:preferences';
+const ACTIVE_PLAN_ID_KEY = 'skillmap:active-plan-id';
 
 const getStoredPreferences = (): UserPreferences => {
   const raw = localStorage.getItem(APP_PREFERENCES_KEY);
@@ -43,11 +44,25 @@ const getStoredPreferences = (): UserPreferences => {
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
 
+const getStoredActivePlanId = (): string | null => {
+  return localStorage.getItem(ACTIVE_PLAN_ID_KEY);
+};
+
 export function AppDataProvider({ children }: PropsWithChildren) {
   const [preferences, setPreferences] = useState<UserPreferences>(getStoredPreferences);
-  const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const [activePlanIdState, setActivePlanIdState] = useState<string | null>(getStoredActivePlanId);
   const [progressSnapshots, setProgressSnapshots] = useState<Record<string, ProgressSummary>>({});
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const setActivePlanId = useCallback((planId: string | null) => {
+    if (planId) {
+      localStorage.setItem(ACTIVE_PLAN_ID_KEY, planId);
+    } else {
+      localStorage.removeItem(ACTIVE_PLAN_ID_KEY);
+    }
+
+    setActivePlanIdState(planId);
+  }, []);
 
   const updatePreferences = useCallback((next: Partial<UserPreferences>) => {
     setPreferences((current) => {
@@ -81,7 +96,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const value = useMemo(
     () => ({
       preferences,
-      activePlanId,
+      activePlanId: activePlanIdState,
       progressSnapshots,
       setActivePlanId,
       setProgressSnapshot,
@@ -90,7 +105,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }),
     [
       preferences,
-      activePlanId,
+      activePlanIdState,
       progressSnapshots,
       setActivePlanId,
       setProgressSnapshot,

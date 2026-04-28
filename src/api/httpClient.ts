@@ -1,6 +1,22 @@
 import type { ApiClient, ApiRequestOptions } from './client';
 import type { ApiError } from '../types/api';
 
+type AuthTokenProvider = () => Promise<string | null>;
+
+interface ClerkWindow extends Window {
+  Clerk?: {
+    session?: {
+      getToken: () => Promise<string | null>;
+    };
+  };
+}
+
+let authTokenProvider: AuthTokenProvider | null = null;
+
+export const setAuthTokenProvider = (provider: AuthTokenProvider | null): void => {
+  authTokenProvider = provider;
+};
+
 const createApiError = async (response: Response): Promise<Error> => {
   let parsedError: Partial<ApiError> | undefined;
 
@@ -16,7 +32,11 @@ const createApiError = async (response: Response): Promise<Error> => {
 
 const getAuthHeaders = async (): Promise<HeadersInit> => {
   try {
-    const token = await (window as any).Clerk?.session?.getToken();
+    const clerkWindow = window as ClerkWindow;
+    const token = authTokenProvider
+      ? await authTokenProvider()
+      : await clerkWindow.Clerk?.session?.getToken();
+
     if (token) {
       return { Authorization: `Bearer ${token}` };
     }

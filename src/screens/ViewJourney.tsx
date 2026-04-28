@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getLearningPlan } from '../api/learningPlans';
+import { getLearningPlan, getLearningPlans } from '../api/learningPlans';
 import { getProgressSummary, toggleSubtopicCompletion as toggleSubtopicCompletionApi } from '../api/progress';
 import type { LearningPlan } from '../types/domain';
 import LoadingSkeleton from '../components/ui/LoadingSkeleton';
@@ -22,16 +22,15 @@ import SocialPanels from '../components/social/SocialPanels';
 interface JourneyRailState {
   notes: string;
   blockers: string;
-  resources: string;
-  reminderDate: string;
 }
 
 const emptyRailState: JourneyRailState = {
   notes: '',
   blockers: '',
-  resources: '',
-  reminderDate: '',
 };
+
+const PROGRESS_RING_R = 36;
+const PROGRESS_RING_C = 2 * Math.PI * PROGRESS_RING_R;
 
 const ViewJourney = () => {
   const { activePlanId, setActivePlanId, setProgressSnapshot, pushToast } = useAppData();
@@ -45,10 +44,17 @@ const ViewJourney = () => {
   const [railSaved, setRailSaved] = useState<JourneyRailState>(emptyRailState);
 
   const loadJourneyPlan = useCallback(() => {
-    if (!activePlanId) {
-      return Promise.reject(new Error('No active plan found. Please select a plan from your dashboard.'));
+    if (activePlanId) {
+      return getLearningPlan(activePlanId);
     }
-    return getLearningPlan(activePlanId);
+
+    return getLearningPlans().then((plans) => {
+      const firstPlan = plans[0];
+      if (!firstPlan) {
+        throw new Error('No learning plan found. Generate a plan from your dashboard first.');
+      }
+      return firstPlan;
+    });
   }, [activePlanId]);
 
   const {
@@ -69,13 +75,9 @@ const ViewJourney = () => {
   const { execute: exportPdf, status: pdfStatus } = useAsyncAction(exportProgressPdf);
 
   const hasUnsavedChanges = useMemo(() => {
-    if (!journeyData || !lastSavedPlan) {
-      return false;
-    }
-
+    if (!journeyData || !lastSavedPlan) return false;
     const hasPlanChanges = JSON.stringify(journeyData) !== JSON.stringify(lastSavedPlan);
     const hasRailChanges = JSON.stringify(railDraft) !== JSON.stringify(railSaved);
-
     return hasPlanChanges || hasRailChanges;
   }, [journeyData, lastSavedPlan, railDraft, railSaved]);
 
@@ -129,10 +131,7 @@ const ViewJourney = () => {
 
   const updatePlan = (updater: (current: LearningPlan) => LearningPlan) => {
     setJourneyData((prev) => {
-      if (!prev) {
-        return prev;
-      }
-
+      if (!prev) return prev;
       const updated = withRecalculatedProgress(updater(prev));
       setProgressSnapshot(updated.id, calculateProgressSummary(updated));
       return updated;
@@ -140,21 +139,15 @@ const ViewJourney = () => {
   };
 
   const toggleSubtopicCompletion = (subtopicId: string) => {
-    if (!journeyData) {
-      return;
-    }
-
-    const currentSubtopic = journeyData.subtopics.find((subtopic) => subtopic.id === subtopicId);
-    if (!currentSubtopic) {
-      return;
-    }
-
+    if (!journeyData) return;
+    const currentSubtopic = journeyData.subtopics.find((s) => s.id === subtopicId);
+    if (!currentSubtopic) return;
     const nextIsCompleted = !currentSubtopic.isCompleted;
 
     updatePlan((current) => ({
       ...current,
-      subtopics: current.subtopics.map((subtopic) =>
-        subtopic.id === subtopicId ? { ...subtopic, isCompleted: nextIsCompleted } : subtopic,
+      subtopics: current.subtopics.map((s) =>
+        s.id === subtopicId ? { ...s, isCompleted: nextIsCompleted } : s,
       ),
     }));
 
@@ -174,8 +167,8 @@ const ViewJourney = () => {
   const handleTitleChange = (subtopicId: string, value: string) => {
     updatePlan((current) => ({
       ...current,
-      subtopics: current.subtopics.map((subtopic) =>
-        subtopic.id === subtopicId ? { ...subtopic, title: value } : subtopic,
+      subtopics: current.subtopics.map((s) =>
+        s.id === subtopicId ? { ...s, title: value } : s,
       ),
     }));
   };
@@ -183,77 +176,52 @@ const ViewJourney = () => {
   const handleDescriptionChange = (subtopicId: string, value: string) => {
     updatePlan((current) => ({
       ...current,
-      subtopics: current.subtopics.map((subtopic) =>
-        subtopic.id === subtopicId ? { ...subtopic, description: value } : subtopic,
+      subtopics: current.subtopics.map((s) =>
+        s.id === subtopicId ? { ...s, description: value } : s,
       ),
     }));
   };
 
   const handleHoursChange = (subtopicId: string, value: number) => {
     const sanitizedHours = Number.isFinite(value) ? Math.max(1, Math.min(value, 99)) : 1;
-
     updatePlan((current) => ({
       ...current,
-      subtopics: current.subtopics.map((subtopic) =>
-        subtopic.id === subtopicId ? { ...subtopic, estimatedHours: sanitizedHours } : subtopic,
+      subtopics: current.subtopics.map((s) =>
+        s.id === subtopicId ? { ...s, estimatedHours: sanitizedHours } : s,
       ),
     }));
   };
 
   const moveSubtopic = (subtopicId: string, direction: 'up' | 'down') => {
     updatePlan((current) => {
-      const index = current.subtopics.findIndex((subtopic) => subtopic.id === subtopicId);
-      if (index < 0) {
-        return current;
-      }
-
+      const index = current.subtopics.findIndex((s) => s.id === subtopicId);
+      if (index < 0) return current;
       const targetIndex = direction === 'up' ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= current.subtopics.length) {
-        return current;
-      }
-
+      if (targetIndex < 0 || targetIndex >= current.subtopics.length) return current;
       const reordered = [...current.subtopics];
       const [moved] = reordered.splice(index, 1);
       reordered.splice(targetIndex, 0, moved);
-
-      return {
-        ...current,
-        subtopics: reordered,
-      };
+      return { ...current, subtopics: reordered };
     });
   };
 
   const handleDropOver = (targetSubtopicId: string) => {
-    if (!draggedSubtopicId || draggedSubtopicId === targetSubtopicId) {
-      return;
-    }
-
+    if (!draggedSubtopicId || draggedSubtopicId === targetSubtopicId) return;
     updatePlan((current) => {
-      const from = current.subtopics.findIndex((subtopic) => subtopic.id === draggedSubtopicId);
-      const to = current.subtopics.findIndex((subtopic) => subtopic.id === targetSubtopicId);
-      if (from < 0 || to < 0) {
-        return current;
-      }
-
+      const from = current.subtopics.findIndex((s) => s.id === draggedSubtopicId);
+      const to = current.subtopics.findIndex((s) => s.id === targetSubtopicId);
+      if (from < 0 || to < 0) return current;
       const reordered = [...current.subtopics];
       const [moved] = reordered.splice(from, 1);
       reordered.splice(to, 0, moved);
-
-      return {
-        ...current,
-        subtopics: reordered,
-      };
+      return { ...current, subtopics: reordered };
     });
-
     setDragOverSubtopicId(null);
     setDraggedSubtopicId(null);
   };
 
   const handleSaveEdits = async () => {
-    if (!journeyData) {
-      return;
-    }
-
+    if (!journeyData) return;
     try {
       const saved = await persistJourney(journeyData);
       setJourneyData(saved);
@@ -269,11 +237,7 @@ const ViewJourney = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const handleBackClick = () => {
@@ -281,10 +245,7 @@ const ViewJourney = () => {
   };
 
   const handleExportCsv = async () => {
-    if (!journeyData) {
-      return;
-    }
-
+    if (!journeyData) return;
     try {
       const csv = await exportCsv(journeyData);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -301,10 +262,7 @@ const ViewJourney = () => {
   };
 
   const handleExportPdf = async () => {
-    if (!journeyData) {
-      return;
-    }
-
+    if (!journeyData) return;
     try {
       await exportPdf(journeyData);
       pushToast({ type: 'info', message: 'PDF export placeholder executed.' });
@@ -315,8 +273,8 @@ const ViewJourney = () => {
 
   if (loadStatus === 'loading') {
     return (
-      <div className="min-h-screen w-full bg-gray-50/20 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-8 py-16">
+      <div className="min-h-screen w-full overflow-y-auto">
+        <div className="mx-auto max-w-4xl px-4 py-12 sm:px-8 sm:py-16">
           <LoadingSkeleton variant="journey" />
         </div>
       </div>
@@ -325,8 +283,8 @@ const ViewJourney = () => {
 
   if (loadStatus === 'error' && loadError) {
     return (
-      <div className="min-h-screen w-full bg-gray-50/20 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-8 py-16">
+      <div className="min-h-screen w-full overflow-y-auto">
+        <div className="mx-auto max-w-4xl px-4 py-12 sm:px-8 sm:py-16">
           <ErrorState message={loadError} onRetry={() => void handleJourneyLoad()} />
         </div>
       </div>
@@ -335,8 +293,8 @@ const ViewJourney = () => {
 
   if (!journeyData) {
     return (
-      <div className="min-h-screen w-full bg-gray-50/20 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-8 py-16">
+      <div className="min-h-screen w-full overflow-y-auto">
+        <div className="mx-auto max-w-4xl px-4 py-12 sm:px-8 sm:py-16">
           <EmptyState
             title="Journey not found"
             description="We could not find a learning plan for this route yet."
@@ -349,216 +307,230 @@ const ViewJourney = () => {
   }
 
   const progress = calculateProgressSummary(journeyData);
-  const nextTopic = journeyData.subtopics.find((subtopic) => !subtopic.isCompleted);
+  const nextTopic = journeyData.subtopics.find((s) => !s.isCompleted);
   const totalTopics = journeyData.subtopics.length;
   const foundationsEnd = Math.max(1, Math.ceil(totalTopics * 0.3));
   const buildEnd = Math.max(foundationsEnd + 1, Math.ceil(totalTopics * 0.75));
+  const ringOffset = PROGRESS_RING_C * (1 - progress.completionPercentage / 100);
 
   const getSegmentLabel = (index: number): string => {
-    if (index < foundationsEnd) {
-      return 'Foundations';
-    }
-
-    if (index < buildEnd) {
-      return 'Build';
-    }
-
+    if (index < foundationsEnd) return 'Foundations';
+    if (index < buildEnd) return 'Build';
     return 'Polish';
   };
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-gray-50/20">
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 lg:px-8 lg:py-16">
+    <div className="min-h-screen w-full overflow-y-auto page-enter">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8 lg:px-8 lg:py-14">
         <div>
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            className="rounded-sm bg-[#1a1a1a] p-3 font-normal text-white transition-colors hover:bg-black"
-            onClick={handleBackClick}
-          >
-            Back to Dashboard
-          </button>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {hasUnsavedChanges ? (
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-800">Unsaved changes</span>
-            ) : (
-              <span className="rounded-full bg-green-100 px-3 py-1 text-xs text-green-800">All changes saved</span>
-            )}
-            <button
-              type="button"
-              onClick={() => void handleSaveEdits()}
-              disabled={!hasUnsavedChanges || persistStatus === 'loading'}
-              className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              {persistStatus === 'loading' ? 'Saving...' : 'Save Edits'}
+          {/* Toolbar */}
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-3 fade-in-up">
+            <button className="btn-ghost" onClick={handleBackClick}>
+              ← Dashboard
             </button>
-            {!hasUnsavedChanges ? (
-              <span className="text-xs text-[var(--color-text-muted)]">Last saved just now</span>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {hasUnsavedChanges ? (
+                <span
+                  className="rounded-full bg-[var(--color-warning-soft)] px-3 py-1 text-[var(--color-warning)]"
+                  style={{ fontSize: 'var(--text-overline)', fontWeight: 500 }}
+                >
+                  Unsaved changes
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handleSaveEdits()}
+                disabled={!hasUnsavedChanges || persistStatus === 'loading'}
+                className="btn-primary"
+              >
+                {persistStatus === 'loading' ? 'Saving…' : 'Save'}
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="mb-8">
-          <h1 className="mb-4 text-3xl font-light tracking-tight text-gray-900 sm:text-4xl">{journeyData.courseName}</h1>
-          <div className="flex flex-wrap items-center gap-3 text-gray-600 font-normal sm:gap-6">
-            <span>Created on {formatDate(journeyData.dateCreated)}</span>
-            <span>•</span>
-            <span>{progress.totalTopics} topics</span>
-            <span>•</span>
-            <span>{progress.estimatedTotalHours} hours estimated</span>
-          </div>
-        </div>
+          {/* Header */}
+          <header className="mb-8 fade-in-up" style={{ animationDelay: '60ms' }}>
+            <h1
+              className="mb-2 tracking-tight text-[var(--color-text)]"
+              style={{ fontSize: 'var(--text-display)', fontWeight: 300 }}
+            >
+              {journeyData.courseName}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-caption)' }}>
+              <span>Created {formatDate(journeyData.dateCreated)}</span>
+              <span>·</span>
+              <span>{progress.totalTopics} topics</span>
+              <span>·</span>
+              <span>{progress.estimatedTotalHours}h estimated</span>
+            </div>
+          </header>
 
-        <div className="mb-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3 text-sm text-[var(--color-text)]">
-          Next action: {nextTopic ? `start ${nextTopic.title}` : 'generate a new roadmap from dashboard'}
-        </div>
-
-        <div className="mb-10 rounded-lg border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="mb-2 text-xl font-light text-gray-900">Learning Progress</h2>
-              <p className="text-gray-600 font-normal">
+          {/* Progress card with ring */}
+          <div className="glass-card mb-8 flex items-center gap-6 p-5 fade-in-up" style={{ animationDelay: '100ms' }}>
+            <div className="relative h-20 w-20 flex-shrink-0">
+              <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
+                <circle
+                  cx="40" cy="40" r={PROGRESS_RING_R}
+                  fill="none" stroke="var(--color-border-light)" strokeWidth="5"
+                />
+                <circle
+                  cx="40" cy="40" r={PROGRESS_RING_R}
+                  fill="none" stroke="var(--color-accent)" strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray={PROGRESS_RING_C}
+                  strokeDashoffset={ringOffset}
+                  className="transition-all duration-500"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span
+                  className="text-[var(--color-text)]"
+                  style={{ fontSize: 'var(--text-subheading)', fontWeight: 600 }}
+                >
+                  {progress.completionPercentage}%
+                </span>
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[var(--color-text)]" style={{ fontSize: 'var(--text-body)', fontWeight: 500 }}>
                 {progress.completedTopics} of {progress.totalTopics} topics completed
               </p>
-            </div>
-            <div className="text-right">
-              <div className="mb-1 text-3xl font-light text-gray-900">{progress.completionPercentage}%</div>
-              <div className="text-sm text-gray-600">
+              <p className="text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-caption)' }}>
                 {progress.completedHours}h / {progress.estimatedTotalHours}h
-              </div>
+              </p>
+              {persistError ? (
+                <p className="mt-2 text-[var(--color-error)]" style={{ fontSize: 'var(--text-caption)' }}>
+                  {persistError}
+                </p>
+              ) : null}
             </div>
+            {nextTopic ? (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/session', {
+                    state: {
+                      planId: journeyData.id,
+                      subtopicId: nextTopic.id,
+                      title: nextTopic.title,
+                      minutes: 25,
+                    },
+                  })
+                }
+                className="btn-primary hidden sm:flex"
+              >
+                Start session
+              </button>
+            ) : null}
           </div>
-          <div className="h-2 w-full rounded-full bg-gray-100">
-            <div
-              className="h-2 rounded-full bg-gray-900 transition-all duration-300"
-              style={{ width: `${progress.completionPercentage}%` }}
+
+          {featureFlags.enableInsights ? <InsightsPanel plan={journeyData} progress={progress} /> : null}
+          {featureFlags.enableInsights ? <ProgressTimeline subtopics={journeyData.subtopics} /> : null}
+          {featureFlags.enableSocial && (featureFlags.enableSharing || featureFlags.enableAccountability) ? (
+            <SocialPanels plan={journeyData} />
+          ) : null}
+
+          {/* Learning path with timeline */}
+          <section className="mb-8">
+            <div className="mb-6 flex items-center justify-between gap-3 fade-in-up" style={{ animationDelay: '140ms' }}>
+              <h2
+                className="text-[var(--color-text)]"
+                style={{ fontSize: 'var(--text-heading)', fontWeight: 600, letterSpacing: '-0.01em' }}
+              >
+                Learning Path
+              </h2>
+              {nextTopic ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate('/session', {
+                      state: {
+                        planId: journeyData.id,
+                        subtopicId: nextTopic.id,
+                        title: nextTopic.title,
+                        minutes: 25,
+                      },
+                    })
+                  }
+                  className="btn-primary sm:hidden"
+                >
+                  Start session
+                </button>
+              ) : null}
+            </div>
+
+            <div>
+              {journeyData.subtopics.map((subtopic, index) => (
+                <div key={subtopic.id}>
+                  {/* Milestone divider */}
+                  {index === 0 || getSegmentLabel(index) !== getSegmentLabel(index - 1) ? (
+                    <div className="mb-4 flex items-center gap-3 pl-10">
+                      <div className="h-px flex-1 bg-[var(--color-border-light)]" />
+                      <span
+                        className="uppercase tracking-widest text-[var(--color-text-subtle)]"
+                        style={{ fontSize: 'var(--text-overline)', fontWeight: 600 }}
+                      >
+                        {getSegmentLabel(index)}
+                      </span>
+                      <div className="h-px flex-1 bg-[var(--color-border-light)]" />
+                    </div>
+                  ) : null}
+                  <JourneyEditorRow
+                    subtopic={subtopic}
+                    index={index}
+                    total={journeyData.subtopics.length}
+                    isSaving={toggleStatus === 'loading'}
+                    dependencyHint={index > 0 ? `Recommended: complete ${journeyData.subtopics[index - 1].title} first.` : undefined}
+                    isDragging={draggedSubtopicId === subtopic.id}
+                    isDragOver={dragOverSubtopicId === subtopic.id}
+                    onToggle={toggleSubtopicCompletion}
+                    onTitleChange={handleTitleChange}
+                    onDescriptionChange={handleDescriptionChange}
+                    onHoursChange={handleHoursChange}
+                    onMoveUp={(id) => moveSubtopic(id, 'up')}
+                    onMoveDown={(id) => moveSubtopic(id, 'down')}
+                    onDragStart={(id) => setDraggedSubtopicId(id)}
+                    onDragEnd={() => { setDraggedSubtopicId(null); setDragOverSubtopicId(null); }}
+                    onDragOverTarget={(id) => setDragOverSubtopicId(id)}
+                    onDropOver={(id) => handleDropOver(id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {featureFlags.enableExport ? (
+            <div className="flex flex-col justify-center gap-3 pt-4 sm:flex-row sm:gap-4">
+              <button
+                type="button"
+                onClick={() => void handleExportCsv()}
+                disabled={csvStatus === 'loading'}
+                className="btn-secondary"
+              >
+                {csvStatus === 'loading' ? 'Exporting CSV…' : 'Export CSV'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleExportPdf()}
+                disabled={pdfStatus === 'loading'}
+                className="btn-primary"
+              >
+                {pdfStatus === 'loading' ? 'Exporting PDF…' : 'Export PDF'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Right rail */}
+        <div className="hidden lg:block">
+          <div className="sticky top-20 space-y-5">
+            <RightRailPanel
+              notes={railDraft.notes}
+              blockers={railDraft.blockers}
+              onNotesChange={(value) => setRailDraft((c) => ({ ...c, notes: value }))}
+              onBlockersChange={(value) => setRailDraft((c) => ({ ...c, blockers: value }))}
             />
           </div>
-          {persistError ? <p className="mt-3 text-sm text-red-700">{persistError}</p> : null}
-        </div>
-
-        <section className="mb-10 rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)] sm:p-6">
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Daily focus</p>
-          <h2 className="mt-2 text-2xl font-light text-[var(--color-text)]">
-            {nextTopic ? nextTopic.title : 'All topics completed'}
-          </h2>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            {nextTopic
-              ? `Start a focused 25-minute session to make progress on ${nextTopic.title}.`
-              : 'Great work. Start a fresh roadmap from your dashboard.'}
-          </p>
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() =>
-                navigate('/session', {
-                  state: {
-                    planId: journeyData.id,
-                    subtopicId: nextTopic?.id,
-                    title: nextTopic?.title ?? journeyData.courseName,
-                    minutes: 25,
-                  },
-                })
-              }
-              disabled={!nextTopic}
-              className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm text-white transition-colors hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              Start 25-min session
-            </button>
-          </div>
-        </section>
-
-        {featureFlags.enableInsights ? <InsightsPanel plan={journeyData} progress={progress} /> : null}
-        {featureFlags.enableInsights ? <ProgressTimeline subtopics={journeyData.subtopics} /> : null}
-        {featureFlags.enableSocial && (featureFlags.enableSharing || featureFlags.enableAccountability) ? (
-          <SocialPanels plan={journeyData} />
-        ) : null}
-
-        <div className="mb-8">
-          <h2 className="mb-8 text-2xl font-light tracking-tight text-gray-900">Learning Path</h2>
-
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-muted)]">Foundations</p>
-              <p className="mt-1 text-sm text-[var(--color-text)]">Topics 1-{foundationsEnd}</p>
-            </div>
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-muted)]">Build</p>
-              <p className="mt-1 text-sm text-[var(--color-text)]">Topics {Math.min(foundationsEnd + 1, totalTopics)}-{Math.min(buildEnd, totalTopics)}</p>
-            </div>
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-muted)]">Polish</p>
-              <p className="mt-1 text-sm text-[var(--color-text)]">Topics {Math.min(buildEnd + 1, totalTopics)}-{totalTopics}</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {journeyData.subtopics.map((subtopic, index) => (
-              <div key={subtopic.id}>
-                {index === 0 || getSegmentLabel(index) !== getSegmentLabel(index - 1) ? (
-                  <p className="mb-2 text-xs uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
-                    {getSegmentLabel(index)}
-                  </p>
-                ) : null}
-                <JourneyEditorRow
-                  subtopic={subtopic}
-                  index={index}
-                  total={journeyData.subtopics.length}
-                  isSaving={toggleStatus === 'loading'}
-                  dependencyHint={index > 0 ? `Recommended: complete ${journeyData.subtopics[index - 1].title} first.` : undefined}
-                  isDragging={draggedSubtopicId === subtopic.id}
-                  isDragOver={dragOverSubtopicId === subtopic.id}
-                  onToggle={toggleSubtopicCompletion}
-                  onTitleChange={handleTitleChange}
-                  onDescriptionChange={handleDescriptionChange}
-                  onHoursChange={handleHoursChange}
-                  onMoveUp={(id) => moveSubtopic(id, 'up')}
-                  onMoveDown={(id) => moveSubtopic(id, 'down')}
-                  onDragStart={(id) => setDraggedSubtopicId(id)}
-                  onDragEnd={() => {
-                    setDraggedSubtopicId(null);
-                    setDragOverSubtopicId(null);
-                  }}
-                  onDragOverTarget={(id) => setDragOverSubtopicId(id)}
-                  onDropOver={(id) => handleDropOver(id)}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {featureFlags.enableExport ? (
-          <div className="flex flex-col justify-center gap-3 pt-8 sm:flex-row sm:gap-4">
-            <button
-              type="button"
-              onClick={() => void handleExportCsv()}
-              disabled={csvStatus === 'loading'}
-              className="rounded-lg border border-gray-200 bg-white px-8 py-3 font-normal text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {csvStatus === 'loading' ? 'Exporting CSV...' : 'Export CSV'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleExportPdf()}
-              disabled={pdfStatus === 'loading'}
-              className="rounded-lg bg-gray-900 px-8 py-3 font-normal text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              {pdfStatus === 'loading' ? 'Exporting PDF...' : 'Export PDF'}
-            </button>
-          </div>
-        ) : null}
-        </div>
-
-        <div className="space-y-4">
-          <RightRailPanel
-            notes={railDraft.notes}
-            blockers={railDraft.blockers}
-            resources={railDraft.resources}
-            reminderDate={railDraft.reminderDate}
-            onNotesChange={(value) => setRailDraft((current) => ({ ...current, notes: value }))}
-            onBlockersChange={(value) => setRailDraft((current) => ({ ...current, blockers: value }))}
-            onResourcesChange={(value) => setRailDraft((current) => ({ ...current, resources: value }))}
-            onReminderDateChange={(value) => setRailDraft((current) => ({ ...current, reminderDate: value }))}
-          />
         </div>
       </div>
     </div>

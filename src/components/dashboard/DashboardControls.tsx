@@ -20,7 +20,6 @@ export default function DashboardControls({
   onSearchChange,
   onFilterChange,
   onSortChange,
-  compact = false,
 }: DashboardControlsProps) {
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     onSearchChange(event.target.value);
@@ -35,14 +34,15 @@ export default function DashboardControls({
   };
 
   return (
-    <div className={`mb-10 grid grid-cols-1 gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-soft)] md:grid-cols-3 ${compact ? 'p-4' : 'p-5'}`}>
+    <div className="mb-6 flex flex-wrap items-center gap-3">
       <label className="sr-only" htmlFor="dashboard-search-input">Search skills</label>
       <input
         id="dashboard-search-input"
         value={search}
         onChange={handleSearch}
-        placeholder="Search skills or subtopics"
-        className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-2.5 text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+        placeholder="Search…"
+        className="min-w-0 flex-1 rounded-[0.625rem] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-2 text-[var(--color-text)] placeholder-[var(--color-text-subtle)] focus:border-[var(--color-accent)] focus:outline-none sm:max-w-xs"
+        style={{ fontSize: 'var(--text-caption)' }}
         aria-label="Search skills and subtopics"
       />
       <label className="sr-only" htmlFor="dashboard-filter-select">Filter by status</label>
@@ -50,10 +50,11 @@ export default function DashboardControls({
         id="dashboard-filter-select"
         value={filter}
         onChange={handleFilter}
-        className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-2.5 text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+        className="rounded-[0.625rem] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+        style={{ fontSize: 'var(--text-caption)' }}
         aria-label="Filter by status"
       >
-        <option value="all">All Status</option>
+        <option value="all">All</option>
         <option value="not-started">Not Started</option>
         <option value="in-progress">In Progress</option>
         <option value="completed">Completed</option>
@@ -63,12 +64,13 @@ export default function DashboardControls({
         id="dashboard-sort-select"
         value={sort}
         onChange={handleSort}
-        className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-2.5 text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+        className="rounded-[0.625rem] border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+        style={{ fontSize: 'var(--text-caption)' }}
         aria-label="Sort skills"
       >
-        <option value="progress">Recommended: Most progress</option>
-        <option value="remaining">Least topics left</option>
-        <option value="hours">Most study hours</option>
+        <option value="progress">Most progress</option>
+        <option value="remaining">Least remaining</option>
+        <option value="hours">Most hours</option>
         <option value="name">A to Z</option>
       </select>
     </div>

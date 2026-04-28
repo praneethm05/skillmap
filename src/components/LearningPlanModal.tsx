@@ -4,7 +4,6 @@ import { useAsyncAction } from '../hooks/useAsyncAction';
 import type { LearningGoalInput, LearningPlan } from '../types/domain';
 import { useAppData } from '../state/AppDataProvider';
 
-
 type LearningPlanModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -37,12 +36,8 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
   );
 
   const runGeneration = async () => {
-    if (!canGenerate) {
-      return;
-    }
-
+    if (!canGenerate) return;
     setModalStep('generating');
-
     try {
       const plan = await generatePlan({
         topic: formState.topic.trim(),
@@ -75,10 +70,7 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
   };
 
   const handleViewPlan = () => {
-    if (!generatedPlan) {
-      return;
-    }
-
+    if (!generatedPlan) return;
     onPlanGenerated(generatedPlan);
     handleClose();
   };
@@ -86,114 +78,133 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-      <div className="mx-4 w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-lg" role="dialog" aria-modal="true" aria-labelledby="learning-plan-modal-title">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm">
+      <div
+        className="mx-4 w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-[var(--shadow-raised)] modal-enter"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="learning-plan-modal-title"
+      >
         {/* Step 1: Input */}
         {modalStep === 'input' && (
-          <div className="p-8">
-            <div className="text-center mb-8">
-                <h2 id="learning-plan-modal-title" className="text-2xl font-light text-gray-900 mb-3">
-                  What would you like to learn?
-                </h2>
-              <p className="text-gray-500 font-normal">
-                Enter goals and preferences to generate your learning roadmap
+          <div className="p-7 sm:p-8">
+            <div className="mb-7 text-center">
+              <h2
+                id="learning-plan-modal-title"
+                className="mb-2 text-[var(--color-text)]"
+                style={{ fontSize: 'var(--text-heading)', fontWeight: 600 }}
+              >
+                What would you like to learn?
+              </h2>
+              <p className="text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-body)' }}>
+                We'll generate a personalized roadmap for you
               </p>
             </div>
 
-            <div className="mb-4">
-              <input
-                type="text"
-                value={formState.topic}
-                onChange={(event) => setFormState((current) => ({ ...current, topic: event.target.value }))}
-                placeholder="e.g., Machine Learning, React.js, Data Structures"
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent font-normal"
-                autoFocus
-                aria-label="Learning topic"
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && canGenerate) {
-                    void runGeneration();
-                  }
-                }}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <select
-                value={formState.currentLevel}
-                onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    currentLevel: event.target.value as LearningGoalInput['currentLevel'],
-                  }))
-                }
-                className="px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                aria-label="Current skill level"
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-              <input
-                type="number"
-                min={1}
-                max={40}
-                value={formState.weeklyHours}
-                onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    weeklyHours: Number(event.target.value),
-                  }))
-                }
-                placeholder="Weekly hours"
-                className="px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                aria-label="Weekly hours"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              <input
-                type="number"
-                min={1}
-                max={52}
-                value={formState.targetWeeks}
-                onChange={(event) =>
-                  setFormState((current) => ({
-                    ...current,
-                    targetWeeks: Number(event.target.value),
-                  }))
-                }
-                placeholder="Target weeks"
-                className="px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                aria-label="Target weeks"
-              />
-              <label className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700">
-                Test failure
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="modal-topic"
+                  className="mb-1.5 block text-[var(--color-text)]"
+                  style={{ fontSize: 'var(--text-caption)', fontWeight: 500 }}
+                >
+                  Topic
+                </label>
                 <input
-                  type="checkbox"
-                  checked={Boolean(formState.forceFailure)}
-                  onChange={(event) =>
-                    setFormState((current) => ({
-                      ...current,
-                      forceFailure: event.target.checked,
-                    }))
-                  }
-                  aria-label="Simulate generation failure"
+                  id="modal-topic"
+                  type="text"
+                  value={formState.topic}
+                  onChange={(e) => setFormState((c) => ({ ...c, topic: e.target.value }))}
+                  placeholder="e.g., Machine Learning, React.js, Data Structures"
+                  className="w-full rounded-[0.625rem] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3 text-[var(--color-text)] placeholder-[var(--color-text-subtle)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-soft)]"
+                  style={{ fontSize: 'var(--text-body)' }}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && canGenerate) void runGeneration();
+                  }}
                 />
-              </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="modal-level"
+                    className="mb-1.5 block text-[var(--color-text)]"
+                    style={{ fontSize: 'var(--text-caption)', fontWeight: 500 }}
+                  >
+                    Current level
+                  </label>
+                  <select
+                    id="modal-level"
+                    value={formState.currentLevel}
+                    onChange={(e) =>
+                      setFormState((c) => ({
+                        ...c,
+                        currentLevel: e.target.value as LearningGoalInput['currentLevel'],
+                      }))
+                    }
+                    className="w-full rounded-[0.625rem] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3 text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-soft)]"
+                    style={{ fontSize: 'var(--text-body)' }}
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="modal-hours"
+                    className="mb-1.5 block text-[var(--color-text)]"
+                    style={{ fontSize: 'var(--text-caption)', fontWeight: 500 }}
+                  >
+                    Weekly hours
+                  </label>
+                  <input
+                    id="modal-hours"
+                    type="number"
+                    min={1}
+                    max={40}
+                    value={formState.weeklyHours}
+                    onChange={(e) =>
+                      setFormState((c) => ({ ...c, weeklyHours: Number(e.target.value) }))
+                    }
+                    className="w-full rounded-[0.625rem] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3 text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-soft)]"
+                    style={{ fontSize: 'var(--text-body)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="modal-weeks"
+                  className="mb-1.5 block text-[var(--color-text)]"
+                  style={{ fontSize: 'var(--text-caption)', fontWeight: 500 }}
+                >
+                  Target weeks
+                </label>
+                <input
+                  id="modal-weeks"
+                  type="number"
+                  min={1}
+                  max={52}
+                  value={formState.targetWeeks}
+                  onChange={(e) =>
+                    setFormState((c) => ({ ...c, targetWeeks: Number(e.target.value) }))
+                  }
+                  className="w-full rounded-[0.625rem] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3 text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-soft)]"
+                  style={{ fontSize: 'var(--text-body)' }}
+                />
+              </div>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleClose}
-                className="flex-1 px-6 py-3 text-gray-600 font-normal border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+            <div className="mt-7 flex gap-3">
+              <button onClick={handleClose} className="btn-secondary flex-1">
                 Cancel
               </button>
               <button
                 onClick={() => void runGeneration()}
                 disabled={!canGenerate}
-                className="flex-1 px-6 py-3 bg-gray-900 text-white font-normal rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="btn-primary flex-1"
               >
                 Generate Plan
               </button>
@@ -203,86 +214,84 @@ const LearningPlanModal = ({ isOpen, onClose, onPlanGenerated }: LearningPlanMod
 
         {/* Step 2: Generating */}
         {modalStep === 'generating' && (
-          <div className="p-8 text-center">
-            <div className="mb-8">
-              <div className="w-12 h-12 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin mx-auto mb-6"></div>
-              <h2 className="text-2xl font-light text-gray-900 mb-3">
-                Generating Learning Plan
-              </h2>
-              <p className="text-gray-500 font-normal">
-                Creating a personalized roadmap for <span className="font-medium">{formState.topic.trim()}</span>
+          <div className="p-8 text-center sm:p-10">
+            <div className="mx-auto mb-6 h-12 w-12 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)] animate-spin" />
+            <h2
+              className="mb-2 text-[var(--color-text)]"
+              style={{ fontSize: 'var(--text-heading)', fontWeight: 600 }}
+            >
+              Generating your roadmap
+            </h2>
+            <p className="text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-body)' }}>
+              Creating a personalized plan for{' '}
+              <span style={{ fontWeight: 500 }}>{formState.topic.trim()}</span>
+            </p>
+            {isGenerating ? (
+              <p className="mt-3 text-[var(--color-text-subtle)]" style={{ fontSize: 'var(--text-caption)' }}>
+                Collecting topics and sequencing modules…
               </p>
-              {isGenerating ? <p className="mt-3 text-xs text-gray-400">Collecting topics and sequencing modules...</p> : null}
-            </div>
+            ) : null}
           </div>
         )}
 
         {/* Step 3: Generated */}
         {modalStep === 'result' && generatedPlan ? (
-          <div className="p-8 text-center">
-            <div className="mb-8">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-light text-gray-900 mb-3">
-                Learning Plan Generated
-              </h2>
-              <p className="text-gray-500 font-normal">
-                Your personalized roadmap for <span className="font-medium">{generatedPlan.courseName}</span> is ready
-              </p>
-              <p className="mt-2 text-sm text-gray-500">
-                {generatedPlan.totalTopics} topics • {generatedPlan.estimatedTotalHours} estimated hours
-              </p>
+          <div className="p-8 text-center sm:p-10">
+            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-success-soft)] celebrate-pop">
+              <svg className="h-7 w-7 text-[var(--color-success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleClose}
-                className="flex-1 px-6 py-3 text-gray-600 font-normal border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+            <h2
+              className="mb-2 text-[var(--color-text)]"
+              style={{ fontSize: 'var(--text-heading)', fontWeight: 600 }}
+            >
+              Plan ready
+            </h2>
+            <p className="text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-body)' }}>
+              Your roadmap for <span style={{ fontWeight: 500 }}>{generatedPlan.courseName}</span> is ready
+            </p>
+            <p className="mt-1 text-[var(--color-text-subtle)]" style={{ fontSize: 'var(--text-caption)' }}>
+              {generatedPlan.totalTopics} topics · {generatedPlan.estimatedTotalHours} estimated hours
+            </p>
+            <div className="mt-7 flex gap-3">
+              <button onClick={handleClose} className="btn-secondary flex-1">
                 Close
               </button>
-              <button
-                onClick={handleViewPlan}
-                className="flex-1 px-6 py-3 bg-gray-900 text-white font-normal rounded-lg hover:bg-gray-800 transition-colors"
-              >
+              <button onClick={handleViewPlan} className="btn-primary flex-1">
                 View Plan
               </button>
             </div>
           </div>
         ) : null}
 
+        {/* Step 4: Error */}
         {modalStep === 'error' ? (
-          <div className="p-8 text-center">
-            <div className="mb-8">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-light text-gray-900 mb-3">Generation failed</h2>
-              <p className="text-gray-500 font-normal">{generationError ?? 'Could not generate a plan right now.'}</p>
+          <div className="p-8 text-center sm:p-10">
+            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-warning-soft)]">
+              <svg className="h-7 w-7 text-[var(--color-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setModalStep('input')}
-                className="flex-1 px-6 py-3 text-gray-600 font-normal border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+            <h2
+              className="mb-2 text-[var(--color-text)]"
+              style={{ fontSize: 'var(--text-heading)', fontWeight: 600 }}
+            >
+              Generation failed
+            </h2>
+            <p className="text-[var(--color-text-muted)]" style={{ fontSize: 'var(--text-body)' }}>
+              {generationError ?? 'Could not generate a plan right now.'}
+            </p>
+            <div className="mt-7 flex gap-3">
+              <button onClick={() => setModalStep('input')} className="btn-secondary flex-1">
                 Edit Inputs
               </button>
-              <button
-                onClick={() => void runGeneration()}
-                className="flex-1 px-6 py-3 bg-gray-900 text-white font-normal rounded-lg hover:bg-gray-800 transition-colors"
-              >
+              <button onClick={() => void runGeneration()} className="btn-primary flex-1">
                 Retry
               </button>
             </div>
           </div>
         ) : null}
-
       </div>
     </div>
   );

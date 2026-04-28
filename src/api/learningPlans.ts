@@ -1,15 +1,18 @@
-import type { LearningGoalInput, LearningPlan, SkillOverview, SkillSubtopic, SkillStatus } from '../types/domain';
+import type { LearningGoalInput, LearningPlan, PlanSubtopic, SkillOverview, SkillStatus } from '../types/domain';
 import type { ApiClient } from './client';
 import { apiClient } from './index';
 
 const client: ApiClient = apiClient;
 
+export const getLearningPlans = async (): Promise<LearningPlan[]> =>
+  client.get<LearningPlan[]>('/learning-plans');
+
 export const getSkillOverviews = async (): Promise<SkillOverview[]> => {
-  const plans = await client.get<LearningPlan[]>('/learning-plans');
-  return plans.map((plan: any) => ({
+  const plans = await getLearningPlans();
+  return plans.map((plan) => ({
     id: plan.id,
     name: plan.courseName,
-    subtopics: plan.subtopics.map((t: any) => ({
+    subtopics: plan.subtopics.map((t: PlanSubtopic) => ({
       id: t.id,
       name: t.title,
       status: (t.isCompleted ? 'completed' : 'not-started') as SkillStatus
