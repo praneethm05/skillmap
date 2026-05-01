@@ -12,11 +12,15 @@ export class LearningPlanService {
 
     const subtopics: IPlanSubtopic[] = aiResponse.subtopics.map((topic, index) => ({
       id: randomUUID(),
-      title: topic.title,
-      description: topic.description,
+      title: topic.title || `Topic ${index + 1}`,
+      description: topic.description || 'Learn the foundational concepts of this topic.',
       isCompleted: false,
-      estimatedHours: topic.estimatedHours,
-      resources: topic.resources,
+      estimatedHours: topic.estimatedHours || 1,
+      resources: Array.isArray(topic.resources) ? topic.resources.map(r => ({
+        title: r.title || 'Helpful Resource',
+        type: r.type || 'article',
+        url: r.url || `https://www.google.com/search?q=${encodeURIComponent(topic.title || input.topic)}`
+      })) : [],
     }));
 
     const plan = new LearningPlan({
@@ -49,7 +53,7 @@ export class LearningPlanService {
   /**
    * Toggles the completion status of a specific subtopic inside a plan.
    */
-  async markTopicComplete(userId: string, planId: string, topicId: string): Promise<ILearningPlan | null> {
+  async toggleTopicComplete(userId: string, planId: string, topicId: string, isCompleted: boolean): Promise<ILearningPlan | null> {
     const plan = await this.getPlanById(userId, planId);
     if (!plan) return null;
 
@@ -58,7 +62,7 @@ export class LearningPlanService {
       throw new Error(`Topic with id ${topicId} not found in this plan.`);
     }
 
-    topic.isCompleted = true; // Or toggle it? Frontend says "markComplete", let's assume one-way true
+    topic.isCompleted = isCompleted;
 
     // Must call save() to trigger the pre('save') aggregate recalcs
     return await plan.save();

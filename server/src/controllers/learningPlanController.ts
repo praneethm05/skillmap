@@ -89,7 +89,7 @@ export const getPlanById = async (
   }
 };
 
-export const markTopicComplete = async (
+export const toggleTopicComplete = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -97,6 +97,7 @@ export const markTopicComplete = async (
   try {
     const planId = req.params.planId as string;
     const topicId = req.params.topicId as string;
+    const { isCompleted } = req.body;
     const userId = (req as any).auth?.userId;
 
     if (!userId) {
@@ -104,7 +105,7 @@ export const markTopicComplete = async (
       return;
     }
 
-    const updatedPlan = await learningPlanService.markTopicComplete(userId, planId, topicId);
+    const updatedPlan = await learningPlanService.toggleTopicComplete(userId, planId, topicId, !!isCompleted);
     
     if (!updatedPlan) {
       res.status(404).json({ error: 'Learning Plan not found.' });

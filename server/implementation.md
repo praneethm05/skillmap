@@ -24,7 +24,7 @@ Our implementation adheres to the following principles, standard in high-perform
 *   **Language:** TypeScript
 *   **Database:** MongoDB (using Mongoose ODM for schema validation and lifecycle hooks)
 *   **Authentication:** Clerk Backend SDK (`@clerk/express`)
-*   **AI Inference:** Local Ollama Server running `deepseek-r1:8b`
+*   **AI Inference:** Local Ollama Server running `qwen3:8b`
 
 ---
 
@@ -112,7 +112,7 @@ Integrating with LLMs requires defensive engineering.
 
 1.  **The Local LLM Client:** We use the native `fetch` API to communicate with `http://localhost:11434/api/generate`.
 2.  **Structured Output Enforcement:** We utilize Ollama's `format: "json"` parameter. We inject a highly specific, minimal JSON schema into the system prompt to guarantee structural integrity.
-3.  **Reasoning Model Handling:** `deepseek-r1:8b` is a reasoning model that often outputs its thought process wrapped in `<think>...</think>` tags before outputting the final JSON. Our `AiService` must include a regex utility to sanitize the raw response string, stripping out the reasoning block before parsing the JSON.
+3.  **Model Handling:** `qwen3:8b` generates the final JSON. Our `AiService` must include a regex utility to sanitize the raw response string, stripping out any reasoning block before parsing the JSON.
 4.  **Resource Link Integrity:** The prompt instructs the LLM to output accurate, generic search queries for the resource URLs (e.g., `https://www.youtube.com/results?search_query=react+native+setup`) rather than hallucinating specific video IDs that might 404.
 
 ---
@@ -122,7 +122,7 @@ Integrating with LLMs requires defensive engineering.
 ### Prerequisites
 1.  **MongoDB:** Install MongoDB locally (via Homebrew/Docker) or use MongoDB Atlas (Free Tier).
 2.  **Ollama:** Ensure the Ollama app is running locally.
-3.  **Model:** Run `ollama run deepseek-r1:8b` in your terminal to ensure the model is loaded.
+3.  **Model:** Run `ollama run qwen3:8b` in your terminal to ensure the model is loaded.
 
 ### Environment Setup
 Create a `.env` file in the `server/` directory:

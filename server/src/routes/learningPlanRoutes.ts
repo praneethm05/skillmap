@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createLearningPlan, getUserPlans, getPlanById, markTopicComplete } from '../controllers/learningPlanController';
+import { createLearningPlan, getUserPlans, getPlanById, toggleTopicComplete } from '../controllers/learningPlanController';
 
 const router = Router();
 
@@ -22,9 +22,9 @@ router.get('/', getUserPlans);
 router.get('/:planId', getPlanById);
 
 /**
- * Route: PATCH /api/v1/learning-plans/:planId/topics/:topicId/complete
- * Description: Marks a specific subtopic inside a plan as complete
+ * Route: PATCH /api/v1/learning-plans/:planId/subtopics/:topicId/toggle
+ * Description: Toggles the completion state of a subtopic
  */
-router.patch('/:planId/topics/:topicId/complete', markTopicComplete);
+router.patch('/:planId/subtopics/:topicId/toggle', toggleTopicComplete);
 
 export default router;

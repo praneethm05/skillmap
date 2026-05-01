@@ -24,8 +24,8 @@ export class AiGenerationService {
 
   constructor() {
     this.apiUrl = process.env.OLLAMA_API_URL || 'http://localhost:11434';
-    // DeepSeek-R1 is reasoning-based and exceptional at generating JSON
-    this.modelName = 'deepseek-r1:8b';
+    // Using qwen3:8b for JSON generation
+    this.modelName = 'qwen3:8b';
   }
 
   public async generatePlan(input: LearningGoalInput): Promise<DeepSeekResponse> {
