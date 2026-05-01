@@ -185,4 +185,25 @@ export const mockApiClient: ApiClient = {
 
     throw new Error(`Mock PATCH route not implemented: ${path}`);
   },
+
+  async put<TBody, TResponse>(
+    path: string,
+    body: TBody,
+    options?: ApiRequestOptions,
+  ): Promise<TResponse> {
+    await simulateLatency(options);
+    const parts = parsePath(path);
+
+    if (parts[0] === 'learning-plans' && parts[1]) {
+      const updateData = body as Partial<LearningPlan>;
+      const updatedPlan = {
+        ...mockStore.plan,
+        ...updateData,
+      };
+      mockStore.plan = updatedPlan;
+      return clone(updatedPlan) as TResponse;
+    }
+
+    throw new Error(`Mock PUT route not implemented: ${path}`);
+  },
 };

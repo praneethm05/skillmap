@@ -102,5 +102,17 @@ export const createHttpApiClient = (baseUrl: string): ApiClient => {
         body: JSON.stringify(body),
         signal: options?.signal,
       }),
+
+    put: <TBody, TResponse>(
+      path: string,
+      body: TBody,
+      options?: ApiRequestOptions,
+    ): Promise<TResponse> =>
+      request<TResponse>(withBaseUrl(path), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: options?.signal,
+      }),
   };
 };

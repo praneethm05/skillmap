@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createLearningPlan, getUserPlans, getPlanById, toggleTopicComplete } from '../controllers/learningPlanController';
+import { createLearningPlan, getUserPlans, getPlanById, toggleTopicComplete, updateLearningPlan } from '../controllers/learningPlanController';
 
 const router = Router();
 
@@ -20,6 +20,12 @@ router.get('/', getUserPlans);
  * Description: Fetches a single learning plan by ID
  */
 router.get('/:planId', getPlanById);
+
+/**
+ * Route: PUT /api/v1/learning-plans/:planId
+ * Description: Updates a learning plan completely (reordering, renaming, hours change)
+ */
+router.put('/:planId', updateLearningPlan);
 
 /**
  * Route: PATCH /api/v1/learning-plans/:planId/subtopics/:topicId/toggle

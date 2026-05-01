@@ -19,6 +19,7 @@ import { saveJourneyEdits } from '../api/journey';
 import { calculateProgressSummary, withRecalculatedProgress } from '../utils/progress';
 import { exportProgressCsv, exportProgressPdf } from '../api/export';
 import { featureFlags } from '../config/featureFlags';
+import { Check, Loader2, CloudAlert } from 'lucide-react';
 import SocialPanels from '../components/social/SocialPanels';
 
 interface JourneyRailState {
@@ -71,11 +72,12 @@ const ViewJourney = () => {
   } = useAsyncAction(toggleSubtopicCompletionApi);
   const {
     execute: persistJourney,
-    status: persistStatus,
     error: persistError,
   } = useAsyncAction(saveJourneyEdits);
   const { execute: exportCsv, status: csvStatus } = useAsyncAction(exportProgressCsv);
   const { execute: exportPdf, status: pdfStatus } = useAsyncAction(exportProgressPdf);
+
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const hasUnsavedChanges = useMemo(() => {
     if (!journeyData || !lastSavedPlan) return false;
@@ -233,8 +235,9 @@ const ViewJourney = () => {
     setDraggedSubtopicId(null);
   };
 
-  const handleSaveEdits = async () => {
+  const handleSaveEdits = useCallback(async () => {
     if (!journeyData) return;
+    setSaveStatus('saving');
     try {
       const saved = await persistJourney(journeyData);
       setJourneyData(saved);
@@ -242,11 +245,23 @@ const ViewJourney = () => {
       setRailSaved(railDraft);
       localStorage.setItem(`skillmap:journey-rail:${saved.id}`, JSON.stringify(railDraft));
       setProgressSnapshot(saved.id, calculateProgressSummary(saved));
-      pushToast({ type: 'success', message: 'Journey edits saved.' });
+      setSaveStatus('saved');
     } catch {
-      pushToast({ type: 'error', message: 'Failed to save journey edits. Please retry.' });
+      setSaveStatus('error');
     }
-  };
+  }, [journeyData, persistJourney, railDraft, setProgressSnapshot]);
+
+  // Debounced Auto-Save
+  React.useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    setSaveStatus('idle'); // Show that we are waiting to save
+    const timeout = setTimeout(() => {
+      void handleSaveEdits();
+    }, 1500); // 1.5s debounce
+
+    return () => clearTimeout(timeout);
+  }, [hasUnsavedChanges, handleSaveEdits]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -341,23 +356,27 @@ const ViewJourney = () => {
             <button className="btn-ghost" onClick={handleBackClick}>
               ← Dashboard
             </button>
-            <div className="flex items-center gap-2">
-              {hasUnsavedChanges ? (
-                <span
-                  className="rounded-full bg-[var(--color-warning-soft)] px-3 py-1 text-[var(--color-warning)]"
-                  style={{ fontSize: 'var(--text-overline)', fontWeight: 500 }}
-                >
-                  Unsaved changes
+            <div className="flex items-center gap-2 text-[var(--color-text-subtle)] text-sm">
+              {saveStatus === 'saving' ? (
+                <span className="flex items-center gap-1.5 transition-opacity duration-300">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Saving...
+                </span>
+              ) : saveStatus === 'saved' && !hasUnsavedChanges ? (
+                <span className="flex items-center gap-1.5 text-[var(--color-success)] transition-opacity duration-300">
+                  <Check className="w-3.5 h-3.5" />
+                  Saved
+                </span>
+              ) : saveStatus === 'error' ? (
+                <span className="flex items-center gap-1.5 text-[var(--color-error)] transition-opacity duration-300">
+                  <CloudAlert className="w-3.5 h-3.5" />
+                  Failed to save
+                </span>
+              ) : hasUnsavedChanges ? (
+                <span className="flex items-center gap-1.5 transition-opacity duration-300">
+                  Unsaved changes...
                 </span>
               ) : null}
-              <button
-                type="button"
-                onClick={() => void handleSaveEdits()}
-                disabled={!hasUnsavedChanges || persistStatus === 'loading'}
-                className="btn-primary"
-              >
-                {persistStatus === 'loading' ? 'Saving…' : 'Save'}
-              </button>
             </div>
           </div>
 

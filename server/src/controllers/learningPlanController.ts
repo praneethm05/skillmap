@@ -89,6 +89,38 @@ export const getPlanById = async (
   }
 };
 
+export const updateLearningPlan = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const planId = req.params.planId as string;
+    const updateData = req.body;
+    const userId = (req as any).auth?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const updatedPlan = await learningPlanService.updatePlan(userId, planId, updateData);
+    
+    if (!updatedPlan) {
+      res.status(404).json({ error: 'Learning Plan not found.' });
+      return;
+    }
+
+    const serializedPlan = updatedPlan.toJSON();
+    serializedPlan.id = serializedPlan._id.toString();
+
+    res.status(200).json(serializedPlan);
+  } catch (error) {
+    console.error('[Controller Error - updateLearningPlan]', error);
+    next(error);
+  }
+};
+
 export const toggleTopicComplete = async (
   req: Request,
   res: Response,

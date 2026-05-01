@@ -9,6 +9,11 @@ export interface ApiClient {
     body: TBody,
     options?: ApiRequestOptions,
   ): Promise<TResponse>;
+  put<TBody, TResponse>(
+    path: string,
+    body: TBody,
+    options?: ApiRequestOptions,
+  ): Promise<TResponse>;
   patch<TBody, TResponse>(
     path: string,
     body: TBody,

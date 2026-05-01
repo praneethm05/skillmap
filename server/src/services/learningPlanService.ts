@@ -51,6 +51,21 @@ export class LearningPlanService {
   }
 
   /**
+   * Updates an entire plan, including subtopic structures (drag & drop reordering, renaming, etc).
+   */
+  async updatePlan(userId: string, planId: string, planData: Partial<ILearningPlan>): Promise<ILearningPlan | null> {
+    const plan = await this.getPlanById(userId, planId);
+    if (!plan) return null;
+
+    if (planData.courseName) plan.courseName = planData.courseName;
+    if (planData.subtopics) {
+      plan.subtopics = planData.subtopics as any;
+    }
+    
+    return await plan.save();
+  }
+
+  /**
    * Toggles the completion status of a specific subtopic inside a plan.
    */
   async toggleTopicComplete(userId: string, planId: string, topicId: string, isCompleted: boolean): Promise<ILearningPlan | null> {

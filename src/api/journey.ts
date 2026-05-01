@@ -1,18 +1,13 @@
 import type { LearningPlan } from '../types/domain';
 import { withRecalculatedProgress } from '../utils/progress';
-
-const delay = (ms: number) =>
-  new Promise<void>((resolve) => {
-    window.setTimeout(() => resolve(), ms);
-  });
+import { apiClient } from './index';
 
 export const saveJourneyEdits = async (plan: LearningPlan): Promise<LearningPlan> => {
-  await delay(450);
-
   const shouldFail = plan.subtopics.some((subtopic) => subtopic.title.toLowerCase().includes('[fail]'));
   if (shouldFail) {
     throw new Error('Could not save journey edits. Remove [fail] and retry.');
   }
 
-  return withRecalculatedProgress(plan);
+  const response = await apiClient.put<Partial<LearningPlan>, LearningPlan>(`/learning-plans/${plan.id}`, plan);
+  return withRecalculatedProgress(response);
 };

@@ -25,7 +25,7 @@ export const useUnsavedChangesGuard = (hasUnsavedChanges: boolean) => {
       }
 
       const confirmed = window.confirm(
-        'You have unsaved changes in this journey. Leave this page anyway?',
+        'Your edits are still syncing. Leave this page anyway?',
       );
 
       if (confirmed) {
