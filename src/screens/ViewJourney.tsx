@@ -1,5 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { startFocus } from '../state/timerSlice';
 import { getLearningPlan, getLearningPlans } from '../api/learningPlans';
 import { getProgressSummary, toggleSubtopicCompletion as toggleSubtopicCompletionApi } from '../api/progress';
 import type { LearningPlan } from '../types/domain';
@@ -36,6 +38,7 @@ const ViewJourney = () => {
   const { activePlanId, setActivePlanId, setProgressSnapshot, pushToast } = useAppData();
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [journeyData, setJourneyData] = useState<LearningPlan | null>(null);
   const [lastSavedPlan, setLastSavedPlan] = useState<LearningPlan | null>(null);
   const [draggedSubtopicId, setDraggedSubtopicId] = useState<string | null>(null);
@@ -112,7 +115,17 @@ const ViewJourney = () => {
 
   React.useEffect(() => {
     void handleJourneyLoad();
-  }, [handleJourneyLoad]);
+
+    // Listen for global completion events from Timer Widget
+    const handlePlanUpdated = (e: CustomEvent<{ planId: string; subtopicId: string }>) => {
+      if (activePlanId === e.detail.planId) {
+        void handleJourneyLoad();
+      }
+    };
+    
+    window.addEventListener('plan-updated', handlePlanUpdated as EventListener);
+    return () => window.removeEventListener('plan-updated', handlePlanUpdated as EventListener);
+  }, [handleJourneyLoad, activePlanId]);
 
   React.useEffect(() => {
     const state = location.state as
@@ -408,14 +421,13 @@ const ViewJourney = () => {
               <button
                 type="button"
                 onClick={() =>
-                  navigate('/session', {
-                    state: {
-                      planId: journeyData.id,
-                      subtopicId: nextTopic.id,
-                      title: nextTopic.title,
-                      minutes: 25,
-                    },
-                  })
+                  dispatch(startFocus({
+                    planId: journeyData.id,
+                    subtopicId: nextTopic.id,
+                    title: nextTopic.title,
+                    topicData: nextTopic,
+                    durationMinutes: 25,
+                  }))
                 }
                 className="btn-primary hidden sm:flex"
               >
@@ -443,14 +455,13 @@ const ViewJourney = () => {
                 <button
                   type="button"
                   onClick={() =>
-                    navigate('/session', {
-                      state: {
-                        planId: journeyData.id,
-                        subtopicId: nextTopic.id,
-                        title: nextTopic.title,
-                        minutes: 25,
-                      },
-                    })
+                    dispatch(startFocus({
+                      planId: journeyData.id,
+                      subtopicId: nextTopic.id,
+                      title: nextTopic.title,
+                      topicData: nextTopic,
+                      durationMinutes: 25,
+                    }))
                   }
                   className="btn-primary sm:hidden"
                 >

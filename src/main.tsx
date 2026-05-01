@@ -1,6 +1,8 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { Provider } from 'react-redux';
+import { store } from './state/store';
 import App from './App';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { BrowserRouter } from 'react-router-dom';
@@ -44,14 +46,16 @@ ReactDOM.createRoot(rootElement).render(
       startupIssueView
     ) : (
       <ClerkProvider publishableKey={appEnv.clerkPublishableKey}>
-        <AuthTokenBridge>
-          <AppDataProvider>
-            <BrowserRouter>
-              <App />
-              <CommandPalette />
-            </BrowserRouter>
-          </AppDataProvider>
-        </AuthTokenBridge>
+        <Provider store={store}>
+          <AuthTokenBridge>
+            <AppDataProvider>
+              <BrowserRouter>
+                <App />
+                <CommandPalette />
+              </BrowserRouter>
+            </AppDataProvider>
+          </AuthTokenBridge>
+        </Provider>
       </ClerkProvider>
     )}
   </React.StrictMode>

@@ -3,7 +3,9 @@ import AddTaskButton from '../components/AddTaskButton';
 import { useCallback, useEffect, useState } from 'react';
 import LearningPlanModal from '../components/LearningPlanModal';
 import { useNavigate } from 'react-router-dom';
-import { getSkillOverviews } from '../api/learningPlans';
+import { useDispatch } from 'react-redux';
+import { startFocus } from '../state/timerSlice';
+import { getSkillOverviews, getLearningPlan } from '../api/learningPlans';
 import type { LearningPlan, SkillOverview } from '../types/domain';
 import LoadingSkeleton from '../components/ui/LoadingSkeleton';
 import EmptyState from '../components/ui/EmptyState';
@@ -26,6 +28,7 @@ interface SkillViewModel {
   subtopicsLeft: number;
   estimatedHours: number;
   nextTopicName: string | undefined;
+  nextTopicId: string | undefined;
   hasStatus: (status: DashboardFilter) => boolean;
   searchableText: string;
 }
@@ -49,6 +52,7 @@ const toSkillViewModel = (skill: SkillOverview): SkillViewModel => {
     subtopicsLeft,
     estimatedHours,
     nextTopicName: nextTopic?.name,
+    nextTopicId: nextTopic?.id,
     hasStatus: (status: DashboardFilter) => {
       if (status === 'all') return true;
       if (status === 'completed') return completed === total && total > 0;
@@ -85,6 +89,7 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 const SkillDashboard = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user } = useUser();
   const { pushToast, setActivePlanId, setProgressSnapshot } = useAppData();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -92,6 +97,7 @@ const SkillDashboard = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<DashboardFilter>('all');
   const [sort, setSort] = useState<DashboardSort>('progress');
+  const [startingSessionId, setStartingSessionId] = useState<string | null>(null);
   const {
     execute: loadSkills,
     status: loadStatus,
@@ -142,6 +148,14 @@ const SkillDashboard = () => {
 
   useEffect(() => {
     void handleSkillsLoad();
+
+    // Listen for global completion events from Timer Widget
+    const handlePlanUpdated = () => {
+      void handleSkillsLoad();
+    };
+    
+    window.addEventListener('plan-updated', handlePlanUpdated);
+    return () => window.removeEventListener('plan-updated', handlePlanUpdated);
   }, [handleSkillsLoad]);
 
   const handleAddClick = () => setIsModalOpen(true);
@@ -199,17 +213,35 @@ const SkillDashboard = () => {
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    onClick={() =>
-                      navigate('/session', {
-                        state: {
+                    disabled={startingSessionId === focusSkill.id}
+                    onClick={async () => {
+                      try {
+                        setStartingSessionId(focusSkill.id);
+                        const fullPlan = await getLearningPlan(focusSkill.id);
+                        const fullTopic = fullPlan.subtopics.find(s => s.id === focusSkill.nextTopicId);
+                        
+                        dispatch(startFocus({
+                          title: fullTopic?.title ?? focusSkill.nextTopicName ?? focusSkill.name,
+                          durationMinutes: 25,
+                          planId: focusSkill.id,
+                          subtopicId: focusSkill.nextTopicId,
+                          topicData: fullTopic,
+                        }));
+                      } catch {
+                        // Fallback to basic session if network fails
+                        dispatch(startFocus({
                           title: focusSkill.nextTopicName ?? focusSkill.name,
-                          minutes: 25,
-                        },
-                      })
-                    }
+                          durationMinutes: 25,
+                          planId: focusSkill.id,
+                          subtopicId: focusSkill.nextTopicId,
+                        }));
+                      } finally {
+                        setStartingSessionId(null);
+                      }
+                    }}
                     className="btn-primary"
                   >
-                    Start 25-min session
+                    {startingSessionId === focusSkill.id ? 'Starting...' : 'Start 25-min session'}
                   </button>
                   <button
                     type="button"

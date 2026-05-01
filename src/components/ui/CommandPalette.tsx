@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { startFocus } from '../../state/timerSlice';
 
 interface CommandPaletteAction {
   id: string;
@@ -9,6 +11,7 @@ interface CommandPaletteAction {
 
 export default function CommandPalette() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -34,9 +37,9 @@ export default function CommandPalette() {
     () => [
       { id: 'dashboard', label: 'Go to Dashboard', run: () => navigate('/dashboard') },
       { id: 'journey', label: 'Go to Journey', run: () => navigate('/journey') },
-      { id: 'session', label: 'Start Session Mode', run: () => navigate('/session') },
+      { id: 'session', label: 'Start Focus Session', run: () => dispatch(startFocus({ title: 'Focus Session', durationMinutes: 25 })) },
     ],
-    [navigate],
+    [navigate, dispatch],
   );
 
   const filtered = actions.filter((action) =>
